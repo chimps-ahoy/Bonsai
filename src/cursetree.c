@@ -84,15 +84,15 @@ void freetree(Tree *t)
 
 uint8_t _updatetags_g(Node *n)
 {
-        if (!n) return 0;
-		if (n->type == split)
-			n->tags = _updatetags_g(n->children[left]) | _updatetags_g(n->children[right]);
-		return n->tags;
+	if (!n) return 0;
+	if (n->type == split)
+		n->tags = _updatetags_g(n->children[left]) | _updatetags_g(n->children[right]);
+	return n->tags;
 }
 
 void updatetags_r(Tree *t)
 {
-        (void)_updatetags_g(t->root);
+	(void)_updatetags_g(t->root);
 }
 
 void updatetags(Node *n)
@@ -386,8 +386,8 @@ int main(void)
 		}
 		drawclients(t, 24, 80, getmaxy(menubar), 0);
 		box(menubar, 0, (int)'~');
-		mvwprintw(menubar, 1, 1, "Bonsai. | filter: %.4b | current tags: %.4b"
-				" | key pressed : %s |", (t->filter>>1), (t->curr->tags>>1), keyname(in));
+		mvwprintw(menubar, 1, 1, "Bonsai-%s | filter: %.4b | current tags: %.4b"
+				" | key pressed : %s |", VERSION, (t->filter>>1), (t->curr->tags>>1), keyname(in));
 		wrefresh(menubar);
 		refresh();
 		printtree(stderr, t);
