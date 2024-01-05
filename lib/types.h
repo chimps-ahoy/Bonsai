@@ -1,15 +1,15 @@
 #include <stdint.h>
 #ifndef TYPES
 #define TYPES
-typedef enum : uint8_t { vert = 0, hori = 1, } Orientation;
-typedef enum : uint8_t { left = 0, right = 1, } Side;
+typedef enum : uint8_t { V = 0, H = 1, } Orientation; /* TODO: bit arrays? */
+typedef enum : uint8_t { L = 0, R = 1, } Side;
 #define FAKESIDE 69
 typedef enum : uint8_t { split = 0, client = 1} Type;
 typedef struct { Orientation o; Side s; } Direction;
-static const Direction NORTH = { hori, left };
-static const Direction SOUTH = { hori, right };
-static const Direction EAST = { vert, right };
-static const Direction WEST = { vert, left };
+static const Direction NORTH = { H, L };
+static const Direction SOUTH = { H, R };
+static const Direction EAST = { V, R };
+static const Direction WEST = { V, L };
 #define HASH(x) ((x) - 'h') 
 							/*I guess these are immediately obsolete because the
 							way keypresses work will be handled differently in
@@ -19,10 +19,10 @@ static const Direction WEST = { vert, left };
 							to ask of them.
 							Obviously gonna handle keybindings similarly to DWM,
 							but im just saying idk why i even put this in types.h*/
-static const Direction keymap[5] = {
+static const Direction keymap[] = {
 	[HASH('h')] = WEST,
 	[HASH('j')] = SOUTH,
 	[HASH('k')] = NORTH,
-	[HASH('l')] = EAST
+	[HASH('l')] = EAST,
 };
 #endif

@@ -1,5 +1,5 @@
-#include "stack.h"
-#include "types.h"
+#include "../lib/stack.h"
+#include "../lib/types.h"
 #include <stdlib.h>
 #include <stdio.h>
 

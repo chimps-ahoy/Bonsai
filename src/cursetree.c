@@ -399,5 +399,6 @@ int main(void)
 	delwin(menubar);
 	freetree(t);
 	endwin();
+	printf("sizeof keys: %ld\n", sizeof(keymap)/sizeof(keymap[0]));
 	return EXIT_SUCCESS;
 }
