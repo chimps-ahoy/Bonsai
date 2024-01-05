@@ -4,20 +4,17 @@ Subject to change.
 Function declarations should all be on one line, with the opening
 curly brace on the next line, like so:
 
-```
-int foo(void)
-{
-...
-```
+    int foo(void)
+    {
+            ...
+    }
 
 For all other scopes (loops, if statements, etc), the opening curly
 braces appears on the same line, like so:
 
-```
-if (condition) {
-...
-}
-```
+    if (condition) {
+        ...
+    }
 
 Single line if's and loops should be used when possible, but intelligently.
 If a single part of a compound statement (if-else, etc), requires
@@ -28,13 +25,14 @@ variable and function names use lowercase, type names use PascalCase.
 if a function's return value is discarded, this should be explicitly
 shown by casting the return value to void at the call site, like so:
 
-```
-int foo(void);
+    int foo(void);
 
-int main(void)
-{
+    int main(void)
+    {
         int a = foo();
         (void)foo();
-		return EXIT_SUCCESS;
-}
-```
+        return EXIT_SUCCESS;
+    }
+
+Try to stay within 80 columns. This is not a strict guideline, but if you notice
+you are going over 80 columns, consider refactoring.
