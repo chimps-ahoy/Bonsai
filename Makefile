@@ -1,7 +1,7 @@
 include config.mk
 
 # fo debugin
-CFLAGS += -g -lcurses
+CFLAGS += -g
 
 $(EXEC) : $(OBJECTS)
 	$(CC) $(CFLAGS) $^ -o $(BINDIR)/$@
