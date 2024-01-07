@@ -152,7 +152,7 @@ void reflect(Node *n)
 	}
 }
 
-Node *kill(Node *n)
+Node *orphan(Node *n)
 {
 	Node *parent = n->parent;
 	if (!parent) return n; /*probably no*/
@@ -168,9 +168,9 @@ Node *kill(Node *n)
 	free(parent);
 	updatetags(n->parent);
 	return n;
-	/* This is how kill() should be used in the main file
+	/* This is how orphan() should be used in the main file
 	 * ```
-	 * Node *tmp = kill(t->curr)
+	 * Node *tmp = orphan(t->curr)
 	 * free(t->curr);
 	 * t->curr = tmp;
 	 * if (!t->curr->parent) t->root = t->curr;
@@ -222,10 +222,10 @@ Node *move(Node *n, const Direction d, uint8_t filter)
 	if (neighbor->children[s])
 		neighbor->children[other(s)] = neighbor->children[s];
 	neighbor->children[s] = n;
-	Node *tmp = kill(n);
+	Node *tmp = orphan(n);
 	n->parent = neighbor;
 	return tmp;
-	/* Within the main file we will have to do the same check as for kill()
+	/* Within the main file we will have to do the same check as for orphan()
 	 *
 	 * Node *tmp = move(...);
 	 * t->curr = tmp;

@@ -59,15 +59,16 @@ Node *addclient(Node *, Side, uint8_t);
  */
 void reflect(Node *);
 
-/* Kills the given node (rehomes?)
+/* Orphans the given node, detacting it from its parent and causing its
+ * sibling to superscede it
  *
- * PARAMS: The node to kill
+ * PARAMS: The node to orphan
  * WARNING: This node is *not* freed, that must be done by the caller!
  *
  * RETURNS: A pointer to the node which takes the place of the killed node.
  * NOTE: Must check the return value to see if it should become the new root
  */
-Node *kill(Node *);/* TODO: rename this?*/
+Node *orphan(Node *);
 
 /* Shifts the width of the given node in the given direction according
  * to the view specified by the filter
