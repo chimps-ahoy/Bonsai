@@ -1,40 +1,9 @@
 #include "../lib/tree.h"
 #include "../lib/stack.h"
 #include "../lib/util.h"
+#include <X11/Xlib.h>
 #define other(x) (((x)+1)%2)
 #define from(x) (((x)->parent->children[L] == (x)) ? L : R)
-/* TODO:
- * - expand for X11 structs
- * - 
- */
-
-struct node {
-	union {
-		void *client;
-		struct /*split*/ {
-			struct node *children[2];
-			float weight;
-			Orientation orient;
-		};
-	};
-	struct node *parent;
-	Type type;
-	uint8_t tags;
-};
-
-Tree *inittree()
-{
-	Tree *t = malloc(sizeof(Tree));
-	Node *n = malloc(sizeof(Node));
-	if (!t || !n) return NULL;
-	n->type = client;
-	n->parent = NULL;
-	t->filter = (1<<1);
-	t->root = n;
-	t->curr = n;
-	n->tags = t->filter;
-	return t;
-}
 
 void freetree(Node *n)
 {
@@ -43,7 +12,7 @@ void freetree(Node *n)
 		freetree(n->children[L]);
 		freetree(n->children[R]);
 	} else {
-		/*delwin(t->client); --TODO: this for X11*/
+		/*delwin(t->win); --TODO: this for X11*/
 	}
 	free(n);
 }
@@ -67,6 +36,7 @@ static void updatetags(Node *n)
 
 Node *addsplit(Node *tosplit, Orientation o, float weight)
 {
+	if (!tosplit) return NULL;
 	Node *new = malloc(sizeof(Node));
 	if (!new) return NULL;
 	new->type = split;
@@ -83,8 +53,16 @@ Node *addsplit(Node *tosplit, Orientation o, float weight)
 	return new;
 }
 
-Node *addclient(Node *currsplit, Side child, uint8_t tags)
+Node *addclient(Node *currsplit, Window w, Side child, uint8_t tags)
 {
+	if (!currsplit) {
+		Node *new = malloc(sizeof(Node));
+		new->parent = NULL;
+		new->type = client;
+		new->tags = tags;
+		new->win = w;
+		return new;
+	}
 	if (currsplit->children[child]) 
 		currsplit->children[other(child)] = currsplit->children[child];
 	currsplit->children[child] = malloc(sizeof(Node));
@@ -92,7 +70,7 @@ Node *addclient(Node *currsplit, Side child, uint8_t tags)
 	currsplit->children[child]->parent = currsplit;
 	currsplit->children[child]->type = client;
 	currsplit->children[child]->tags = tags;
-	currsplit->children[child]->client = NULL;
+	currsplit->children[child]->win = w;
 	updatetags(currsplit);
 	return currsplit->children[child];	
 }
@@ -150,6 +128,18 @@ void reflect(Node *n)
 		reflect(n->children[L]);
 		reflect(n->children[R]);
 	}
+}
+
+Node *find(Node *n, Window w)
+{
+	if (!n) return NULL;
+	if (n->type == split) {
+		Node *tmp;
+		if ((tmp = find(n->children[L], w))) return tmp;
+		if ((tmp = find(n->children[R], w))) return tmp;
+	}
+	if (n->type == client && n->win == w) return n;
+	return NULL;
 }
 
 Node *orphan(Node *n)

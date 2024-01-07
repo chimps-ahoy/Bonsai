@@ -1,13 +1,28 @@
 #ifndef TREE_H
 #define TREE_H
 #include <stdint.h>
+#include <X11/Xlib.h>
 #include "types.h"
 #include "stack.h"
-
 /*
  * A node in the binary split tree of windows.
  */
-typedef struct node Node;
+typedef struct node {
+	union {
+		struct {
+			Window win;
+			int x, y, w, h, bw;
+		};
+		struct /*split*/ {
+			struct node *children[2];
+			float weight;
+			Orientation orient;
+		};
+	};
+	struct node *parent;
+	Type type;
+	uint8_t tags;
+} Node;
 
 /*
  * A binary split tree of windows.
@@ -20,12 +35,6 @@ typedef struct {
 	Node *curr;
 	uint8_t filter;
 } Tree;
-
-/* Initializes a tree struct on the heap.
- *
- * RETURNS: a pointer to the new tree
- */
-Tree *inittree();
 
 /* Recursively frees a tree downwards from the given node
  * 
@@ -50,7 +59,7 @@ Node *addsplit(Node *, Orientation, float);
  * RETURNS: A pointer to the new node
  * NOTE: Must check the return value to see if it should become the new root
  */
-Node *addclient(Node *, Side, uint8_t);
+Node *addclient(Node *, Window w, Side, uint8_t);
 
 /* Recursively flips the orientation of all splits downwards from
  * the given node
@@ -58,6 +67,15 @@ Node *addclient(Node *, Side, uint8_t);
  * PARAMS: The node to start from
  */
 void reflect(Node *);
+
+/* Finds the node which contains the given window, looking downwards
+ * from the given node
+ *
+ * PARAMS: The node to start from, the window whose node we want to find
+ *
+ * RETURNS: A pointer to the node which contains the given window
+ */
+Node *find(Node *, Window);
 
 /* Orphans the given node, detacting it from its parent and causing its
  * sibling to superscede it
