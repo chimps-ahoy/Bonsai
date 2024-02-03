@@ -2,8 +2,26 @@
 #include "../lib/stack.h"
 #include "../lib/util.h"
 #include <X11/Xlib.h>
+#include <stdio.h>
 #define other(x) (((x)+1)%2)
 #define from(x) (((x)->parent->children[L] == (x)) ? L : R)
+
+void printtree(Node *n, FILE *f)
+{
+	if (!n) {
+		fprintf(f, "NULL");
+		return;
+	}
+	if (n->type == split) {
+		fprintf(f, "(");
+		printtree(n->children[L], f);
+		fprintf(f, (n->orient == H) ? "-" : "|");
+		printtree(n->children[R], f);
+		fprintf(f, ")");
+		return;
+	}
+	fprintf(f, "%ld", n->win);
+}
 
 void freetree(Node *n)
 {

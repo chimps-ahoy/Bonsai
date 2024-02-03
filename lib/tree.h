@@ -1,6 +1,7 @@
 #ifndef TREE_H
 #define TREE_H
 #include <stdint.h>
+#include <stdio.h>
 #include <X11/Xlib.h>
 #include "types.h"
 #include "stack.h"
@@ -35,6 +36,8 @@ typedef struct {
 	Node *curr;
 	uint8_t filter;
 } Tree;
+
+void printtree(Node *, FILE *);
 
 /* Recursively frees a tree downwards from the given node
  * 
