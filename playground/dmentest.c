@@ -4,15 +4,14 @@
 
 int main(void)
 {
-	FILE *pipo = popen("dmenu < /dev/null", "r");
+	FILE *pipo = popen("dmenu < /dev/null | lua 2>&1", "r");
 	if (!pipo) {
 		fprintf(stderr, "farted\n");
 		return EXIT_FAILURE;
 	}
 	char buff[255] = {0};
 	fgets(buff, 255, pipo);
-	long farted = atoi(buff);
-	fprintf(stdout, "2 + 2 = %ld\n", farted *2);
+	fprintf(stdout, "lua says:\n\t %s", buff);
 	pclose(pipo);
 	return EXIT_SUCCESS;
 }
