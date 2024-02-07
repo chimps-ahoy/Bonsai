@@ -1,7 +1,6 @@
 #include "../lib/tree.h"
 #include "../lib/stack.h"
 #include "../lib/util.h"
-#include <X11/Xlib.h>
 #include <stdio.h>
 #define other(x) (((x)+1)%2)
 #define from(x) (((x)->parent->children[L] == (x)) ? L : R)
@@ -20,7 +19,7 @@ void printtree(Node *n, FILE *f)
 		fprintf(f, ")");
 		return;
 	}
-	fprintf(f, "%ld", n->win);
+	fprintf(f, "%d", n->win);
 }
 
 void freetree(Node *n)
@@ -30,17 +29,17 @@ void freetree(Node *n)
 		freetree(n->children[L]);
 		freetree(n->children[R]);
 	} else {
-		/*delwin(t->win); --TODO: this for X11*/
+		//delwin(n->win); 
 	}
 	free(n);
 }
 
-static uint8_t updatetags_g(Node *n)
+static uint8_t g_updatetags(Node *n)
 {
 	if (!n) return 0;
 	if (n->type == split)
-		n->tags = updatetags_g(n->children[L])
-			    | updatetags_g(n->children[R]);
+		n->tags = g_updatetags(n->children[L])
+			    | g_updatetags(n->children[R]);
 	return n->tags;
 }
 
@@ -148,7 +147,7 @@ void reflect(Node *n)
 	}
 }
 
-Node *find(Node *n, Window w)
+Node *find(Node *n,  Window w)
 {
 	if (!n) return NULL;
 	if (n->type == split) {
@@ -201,7 +200,7 @@ void shiftwidth(Node *n, const Direction d, uint8_t filter)
 		parent->weight = MIN(0.9,MAX(parent->weight-0.1, 0.1));
 }
 
-Node *move(Node *n, const Direction d, uint8_t filter)
+Node *moveclient(Node *n, const Direction d, uint8_t filter)
 { 
 	if (!n->parent) return n;
 	if (n->parent->orient != d.o) {
@@ -242,6 +241,17 @@ Node *move(Node *n, const Direction d, uint8_t filter)
 	 * //in fact it is the same aside from freeing the current, so perhaps
 	 * //there can be some DRYing
 	 */
+}
+
+void r_apply(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args))
+{
+	if (!n) return;
+	if (n->type == split) {
+		r_apply(n->children[L],F,T(n,a),T);
+		r_apply(n->children[R],F,T(n,a),T);
+		return;
+	}
+	F(n,a);
 }
 #undef other
 #undef from

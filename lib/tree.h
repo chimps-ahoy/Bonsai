@@ -2,18 +2,15 @@
 #define TREE_H
 #include <stdint.h>
 #include <stdio.h>
-#include <X11/Xlib.h>
 #include "types.h"
 #include "stack.h"
 /*
  * A node in the binary split tree of windows.
  */
+typedef int Window;
 typedef struct node {
 	union {
-		struct {
-			Window win;
-			int x, y, w, h, bw;
-		};
+		Window win;
 		struct /*split*/ {
 			struct node *children[2];
 			float weight;
@@ -62,7 +59,7 @@ Node *addsplit(Node *, Orientation, float);
  * RETURNS: A pointer to the new node
  * NOTE: Must check the return value to see if it should become the new root
  */
-Node *addclient(Node *, Window w, Side, uint8_t);
+Node *addclient(Node *, Window, Side, uint8_t);
 
 /* Recursively flips the orientation of all splits downwards from
  * the given node
@@ -117,5 +114,20 @@ Node *findneighbor(Node *, const Direction, uint8_t);
  * RETURNS: A pointer to the node which replaces the moved node
  * NOTE: Must check return value to see if node should become the new root
  */
-Node *move(Node *, const Direction, uint8_t);
+Node *moveclient(Node *, const Direction, uint8_t);
+
+/* Recursively applies function F downwards from n with Args a and transform
+ * T.
+ * Each split encountered applies T to a and recursively calls r_apply to
+ * the children.
+ * Upon reaching a leaf node, F(n,a) is called. Note that T is not applied to
+ * a on the final call
+ *
+ * PARAMS: A pointer to the starting node, the function to apply to the leaves,
+ * the arguments to pass to the function, and the transformation function
+ * to those arguments
+ *
+ * RETURNS: void
+ */
+void r_apply(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args));
 #endif

@@ -6,6 +6,14 @@ typedef enum : uint8_t { L = 0, R = 1, } Side;
 #define FAKESIDE 69
 typedef enum : uint8_t { split = 0, client = 1} Type;
 typedef struct { Orientation o; Side s; } Direction;
+typedef union {
+	struct {
+		int x;
+		int y;
+		int w;
+		int h;
+	} geo;
+} Args;
 static const Direction NORTH = { H, L };
 static const Direction SOUTH = { H, R };
 static const Direction EAST = { V, R };
