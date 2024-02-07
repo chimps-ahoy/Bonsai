@@ -2,12 +2,13 @@
 #define TREE_H
 #include <stdint.h>
 #include <stdio.h>
+#include <curses.h>
 #include "types.h"
 #include "stack.h"
 /*
  * A node in the binary split tree of windows.
  */
-typedef int Window;
+typedef WINDOW * Window;
 typedef struct node {
 	union {
 		Window win;

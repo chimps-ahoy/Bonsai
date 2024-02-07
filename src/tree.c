@@ -1,6 +1,7 @@
 #include "../lib/tree.h"
 #include "../lib/stack.h"
 #include "../lib/util.h"
+#include <curses.h>
 #include <stdio.h>
 #define other(x) (((x)+1)%2)
 #define from(x) (((x)->parent->children[L] == (x)) ? L : R)
@@ -19,7 +20,7 @@ void printtree(Node *n, FILE *f)
 		fprintf(f, ")");
 		return;
 	}
-	fprintf(f, "%d", n->win);
+	fprintf(f, "%p", n->win);
 }
 
 void freetree(Node *n)
@@ -130,6 +131,7 @@ static Node *findparent(Node *n, uint8_t filter, const Direction d, Stack *bread
 
 Node *findneighbor(Node *curr, const Direction d, uint8_t filter)
 {
+	if (!curr) return NULL;
 	Stack *breadcrumbs = initstack();
 	Node *parent = findparent(curr, filter, d, breadcrumbs);
 	if (parent)
@@ -161,8 +163,9 @@ Node *find(Node *n,  Window w)
 
 Node *orphan(Node *n)
 {
+	if (!n) return NULL;
 	Node *parent = n->parent;
-	if (!parent) return n; /*probably no*/
+	if (!parent) return NULL; /*probably no*/
 
 	n = parent->children[other(from(n))];
 
@@ -189,8 +192,8 @@ Node *orphan(Node *n)
 
 void shiftwidth(Node *n, const Direction d, uint8_t filter)
 {
-	Node *parent 
-		= findparent(n, filter, (Direction){ d.o, FAKESIDE }, NULL);
+	if (!n) return;
+	Node *parent = findparent(n, filter, (Direction){ d.o, FAKESIDE }, NULL);
 	if (!parent && n->parent)
 		parent = findparent(n->parent->children[other(from(n))],
 							filter, (Direction){ d.o, FAKESIDE }, NULL);
@@ -202,6 +205,7 @@ void shiftwidth(Node *n, const Direction d, uint8_t filter)
 
 Node *moveclient(Node *n, const Direction d, uint8_t filter)
 { 
+	if (!n) return NULL;
 	if (!n->parent) return n;
 	if (n->parent->orient != d.o) {
 		Side s = from(n); 
@@ -247,8 +251,8 @@ void r_apply(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args))
 {
 	if (!n) return;
 	if (n->type == split) {
-		r_apply(n->children[L],F,T(n,a),T);
-		r_apply(n->children[R],F,T(n,a),T);
+		r_apply(n->children[L],F,T(n->children[L],a),T);
+		r_apply(n->children[R],F,T(n->children[R],a),T);
 		return;
 	}
 	F(n,a);

@@ -1,52 +1,25 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <X11/Xlib.h>
-#include "../lib/types.h"
-#include "../lib/tree.h"
-#include "../lib/config.h"
+//#include "../lib/types.h"
+//#include "../lib/tree.h"
+//#include "../lib/config.h"
 
 static Display *dpy = NULL;
 static int screen;
 static Window root;
-static Tree *t = NULL;
 static int sw;
 static int sh;
 
 void new(XEvent *_e)
 {
-	static Side s = L;
-	t->curr = addclient(addsplit(t->curr, V, 0.5), _e->xmap.window, (s=(s+1)%2), t->filter);
-	if (!t->curr->parent)
-		t->root = t->curr;
-}
-
-void recur(Node *n, int x, int y, unsigned int w, unsigned int h)
-{
-	if (!n) return;
-	if (n->type == split && n->orient == H) {
-		fprintf(stderr, "%d\n", __LINE__);
-		recur(n->children[L], x, y, w, h*n->weight);
-		recur(n->children[R], x, y+(h*n->weight), w, h*(1-n->weight));
-		return;
-	}
-	if (n->type == split && n->orient == V) {
-		fprintf(stderr, "%d\n", __LINE__);
-		recur(n->children[L], x, y, w*n->weight, h);
-		recur(n->children[R], x+(w*n->weight), y, w*(1-n->weight), h);
-		return;
-	}
-	fprintf(stderr, "%d\n", __LINE__);
-	XUnmapWindow(dpy, n->win);
-	XMoveResizeWindow(dpy, n->win, x, y, w, h);
-	XMapWindow(dpy, n->win);
 }
 
 void map(XEvent *_e)
 {
-	new(_e);
-	recur(t->root, 0, 0, sw, sh);
-	printtree(t->root, stderr);
-	fprintf(stderr, "\n");
+	XUnmapWindow(dpy, _e->xmap.window);
+	XMoveResizeWindow(dpy, _e->xmap.window, 20, 20, sw/2, sh/2);
+	XMapWindow(dpy, _e->xmap.window);
 }
 
 void unmap(XEvent *_e)
@@ -89,16 +62,8 @@ int main(void)
 	screen = DefaultScreen(dpy);
 	sw = DisplayWidth(dpy, screen);
 	sh = DisplayHeight(dpy, screen);
+	fprintf(stderr, "%dX%d\n", sw, sh);
 	root = RootWindow(dpy, screen);
-
-	t = malloc(sizeof(Tree));
-	if (!t) {
-		fprintf(stderr, "not enough mem.");
-		return EXIT_FAILURE;
-	}
-	t->root = NULL;
-	t->curr = NULL;
-	t->filter = (1<<1);
 
 	XSetErrorHandler(otherwmdetected);
 	XSelectInput(dpy, DefaultRootWindow(dpy), SubstructureRedirectMask);
