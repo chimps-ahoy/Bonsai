@@ -4,7 +4,6 @@
 #include <curses.h>
 #include <stdio.h>
 #define other(x) (((x)+1)%2)
-#define from(x) (((x)->parent->children[L] == (x)) ? L : R)
 
 void printtree(Node *n, FILE *f)
 {
@@ -20,7 +19,7 @@ void printtree(Node *n, FILE *f)
 		fprintf(f, ")");
 		return;
 	}
-	fprintf(f, "%p", n->win);
+	fprintf(f, "%ld", n->win);
 }
 
 void freetree(Node *n)
@@ -247,15 +246,15 @@ Node *moveclient(Node *n, const Direction d, uint8_t filter)
 	 */
 }
 
-void r_apply(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args))
+void trickle(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args))
 {
 	if (!n) return;
 	if (n->type == split) {
-		r_apply(n->children[L],F,T(n->children[L],a),T);
-		r_apply(n->children[R],F,T(n->children[R],a),T);
+		trickle(n->children[L],F,T(n->children[L],a),T);
+		trickle(n->children[R],F,T(n->children[R],a),T);
 		return;
 	}
 	F(n,a);
 }
 #undef other
-#undef from
+//#undef from

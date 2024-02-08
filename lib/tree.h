@@ -2,13 +2,14 @@
 #define TREE_H
 #include <stdint.h>
 #include <stdio.h>
-#include <curses.h>
+#include <X11/Xlib.h>
 #include "types.h"
 #include "stack.h"
+#define from(x) (((x)->parent->children[L] == (x)) ? L : R)
 /*
  * A node in the binary split tree of windows.
  */
-typedef WINDOW * Window;
+typedef Window Window;
 typedef struct node {
 	union {
 		Window win;
@@ -130,5 +131,5 @@ Node *moveclient(Node *, const Direction, uint8_t);
  *
  * RETURNS: void
  */
-void r_apply(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args));
+void trickle(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args));
 #endif
