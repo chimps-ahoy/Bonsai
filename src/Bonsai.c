@@ -22,8 +22,12 @@ Args partition(Node *n, Args a)
 		        .geo = {
                  .x = a.geo.x + from * a.geo.w * n->weight * !n->orient,
                  .y = a.geo.y + from * a.geo.h * n->weight * n->orient,
-                 .w = MAX(a.geo.w*n->orient,a.geo.w*n->weight*!n->orient),
-                 .h = MAX(a.geo.h*!n->orient,a.geo.h*n->weight*n->orient)//TODO: forgot about the 1-weight LOL!
+                 .w = MAX(a.geo.w*n->orient, //foo
+						  a.geo.w*n->weight*!n->orient*!from 
+						 +a.geo.w*(1-n->weight)*!n->orient*from),
+                 .h = MAX(a.geo.h*!n->orient,
+						  a.geo.h*n->weight*n->orient*!from 
+						 +a.geo.h*(1-n->weight)*n->orient*from)
 				}
             };
 }
@@ -37,7 +41,7 @@ void draw(Node *n, Args a)
 
 void map(XEvent *_e)
 {
-	t->curr = addclient(addsplit(t->curr, H, 0.5), _e->xmap.window, L, t->filter);
+	t->curr = addclient(addsplit(t->curr, H, 0.5), _e->xmap.window, R, t->filter);
 	if (!t->curr->parent) t->root = t->curr;
 	else if (!t->curr->parent->parent) t->root = t->curr->parent;
 	trickle(t->root, draw, (Args){.geo={.w=sw,.h=sh}}, partition);
