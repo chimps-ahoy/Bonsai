@@ -41,7 +41,7 @@ void draw(Node *n, Args a)
 
 void map(XEvent *_e)
 {
-	t->curr = addclient(addsplit(t->curr, H, 0.5), _e->xmap.window, R, t->filter);
+	t->curr = addclient(addsplit(t->curr, H, 0.75), _e->xmap.window, L, t->filter);
 	if (!t->curr->parent) t->root = t->curr;
 	else if (!t->curr->parent->parent) t->root = t->curr->parent;
 	trickle(t->root, draw, (Args){.geo={.w=sw,.h=sh}}, partition);
