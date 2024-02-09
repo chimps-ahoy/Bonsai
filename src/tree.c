@@ -1,3 +1,4 @@
+#include "../lib/types.h"
 #include "../lib/tree.h"
 #include "../lib/stack.h"
 #include "../lib/util.h"
@@ -246,15 +247,19 @@ Args partition(Region *r, Args a)
 {
 	if (!r || !r->parent) return a;
     Side fr = IN(r);
+	uint8_t vis = !!(r->tags & a.geo.filter);
     r = r->parent;
-	Orientation o = r->orient;/*cache coherency*/
+	uint8_t fill = !!(r->subregion[other(fr)]->tags & a.geo.filter);
+	Orientation o = r->orient;
 	float fa = r->weight;
     return (Args){ .geo = {
-                         .x = a.geo.x + fr * a.geo.w * fa * other(o),
-                         .y = a.geo.y + fr * a.geo.h * fa * o,
-						 .w = MAX(a.geo.w * o,
-								  a.geo.w * (2 * fa * fr - fa - fr + 1) * other(o)),
-						 .h = MAX(a.geo.h * other(o),
-								  a.geo.h * (2 * fa * fr - fa - fr + 1) * o)
-	                } };
+                   .x = (a.geo.x + fr * (other(o)&other(fill)) * a.geo.w * fa),
+                   .y = (a.geo.y + fr * (o&other(fill)) * a.geo.h * fa), 
+				   .w = vis * MAX((o|fill) * a.geo.w,
+								   a.geo.w * (2 * fa * fr - fa - fr + 1) * other(o)),
+				   .h = vis * MAX((other(o)|fill) * a.geo.h,
+								   a.geo.h * (2 * fa * fr - fa - fr + 1) * o),
+				   .filter = a.geo.filter
+	                } 
+	             };
 }

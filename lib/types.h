@@ -21,6 +21,7 @@ typedef union {
 		int y;
 		int w;
 		int h;
+		uint8_t filter;
 	} geo;
 } Args;
 static const Direction NORTH = { H, L };
