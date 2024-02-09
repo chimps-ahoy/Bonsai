@@ -1,52 +1,43 @@
 #include "../lib/types.h"
 #include "../lib/stack.h"
 #include "../lib/tree.h"
-#include <curses.h>
+#include "../lib/util.h"
 #include <stdlib.h> 
 #include <stdio.h>
 #include <unistd.h>
 
-#define other(x) (((x)+1)%2)
-#define from(x) (((x)->parent->children[L] == (x)) ? L : R)
-#define MAX(x,y) ((x) > (y) ? (x) : (y))
-#define MIN(x,y) ((x) < (y) ? (x) : (y))
-
-#include <curses.h>
-#ifdef CURSES
 #define CTRL 0x1F
 #define UNCTRL 0x60
 #define SHIFT ~32
 #define UNSHIFT ~SHIFT
-#endif
 
-static Tree *t;
+static Tree *t; //kinda makes more sense to not even use the struct for this?
+				//just have 3 statics?
+				//makes the names nicer IMO
 
-Args partition(Node *n, Args a)
+void debugpr(Region *r, Args a)
 {
-	if (!n || !n->parent) return a;
-    Side from = from(n);
-    n = n->parent;
-    return (Args){
-                 a.geo.x + from * a.geo.w * n->weight * !n->orient,
-                 a.geo.y + from * a.geo.h * n->weight * n->orient,
-             MAX(a.geo.w*n->orient,a.geo.w*n->weight*!n->orient),
-             MAX(a.geo.h*!n->orient,a.geo.h*n->weight*n->orient)
-            };
+	fprintf(stderr, "%p - {(%d,%d)%dX%d}\r", r->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
 }
 
-void draw(Node *n, Args a)
+Args dummyt(Region *_, Args __)
 {
-	if (n->win) {
-		wclear(n->win);
-		delwin(n->win);
+	return __;
+}
+
+void draw(Region *r, Args a)
+{
+	if (r->win) {
+		wclear(r->win);
+		delwin(r->win);
 	}
-	n->win = newwin(a.geo.h, a.geo.w, a.geo.y, a.geo.x);
-	if (n == t->curr) {
-		box(n->win, (int)'+', (int)'+');
+	r->win = newwin(a.geo.h, a.geo.w, a.geo.y, a.geo.x);
+	if (r == t->curr) {
+		box(r->win, (int)'+', (int)'+');
 	} else {
-		box(n->win, (int)'|', (int)'-');
+		box(r->win, (int)'|', (int)'-');
 	}
-	wrefresh(n->win);
+	wrefresh(r->win);
 }
 
 int main(void)
@@ -57,8 +48,8 @@ int main(void)
 	curs_set(0);
 
 	t = malloc(sizeof(Tree)); 
-	Node *n;
-	t->root = NULL;
+	Region *r;
+	t->screen = NULL;
 	t->curr = NULL;
 	t->filter = 1<<1;
 
@@ -77,10 +68,10 @@ int main(void)
 			case 'k'&CTRL:
 			case 'j'&CTRL:
 			case 'h'&CTRL:
-				t->curr = addclient(addsplit(t->curr, keymap[HASH(in|UNCTRL)].o,
+				t->curr = spawn(split(t->curr, keymap[HASH(in|UNCTRL)].o,
 							        0.5), NULL, keymap[HASH(in|UNCTRL)].s, t->filter);
-				if (!t->curr->parent) t->root = t->curr;
-				else if (!t->curr->parent->parent) t->root = t->curr->parent;
+				if (!t->curr->parent) t->screen = t->curr;
+				else if (!t->curr->parent->parent) t->screen = t->curr->parent;
 				break;
 			case 'l'&SHIFT:
 			case 'k'&SHIFT:
@@ -89,7 +80,7 @@ int main(void)
 				moveclient(t->curr, keymap[HASH(in|UNSHIFT)], t->filter);
 				break;
 			case 'r':
-				reflect(t->root);
+				reflect(t->screen);
 				break;
 			case '1':
 			case '2':
@@ -117,28 +108,25 @@ int main(void)
 				shiftwidth(t->curr, SOUTH, t->filter);
 				break;
 			case 'q':
-				n = orphan(t->curr);
+				r = orphan(t->curr);
 				free(t->curr);
-				if (!n || !n->parent) t->root = n;
-				t->curr = NULL;
-				for (int i = 0; !t->curr && i<4; i++)
-					t->curr = findneighbor(t->root, (Direction){i&2,i&1}, t->filter);
+				if (!r || !r->parent) t->screen = r;
+				t->curr = r;
 				break;
 		}
 		box(menubar, 0, (int)'~');
 		uint8_t tags = (t->curr) ? t->curr->tags >> 1 : 0;
 		mvwprintw(menubar, 1, 1, "Bonsai. | filter: %.4b | current tags: %.4b"
 				" | key pressed : %s |", (t->filter>>1), tags, keyname(in));
-		r_apply(t->root, draw, (Args){.geo={0,getmaxy(menubar),80,24}}, partition);
+		trickle(t->screen, draw, (Args){.geo={0,getmaxy(menubar),80,24}}, partition);
+		trickle(t->screen, debugpr, (Args){.geo={.x=0,.y=0,.w=1920,.h=1080}}, partition);
 		wrefresh(menubar);
 		refresh();
 		in = getch();
 	}
 	delwin(menubar);
-	printtree(t->root, stderr);
-	fprintf(stderr, "\n");
 
-	freetree(t->root);
+	trickle(t->screen,freeregion,(Args){0},dummyt);
 	endwin();
 	return EXIT_SUCCESS;
 }

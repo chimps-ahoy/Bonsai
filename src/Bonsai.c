@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <X11/Xlib.h>
 #include "../lib/types.h"
 #include "../lib/tree.h"
 #include "../lib/util.h"

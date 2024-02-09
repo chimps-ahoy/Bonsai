@@ -2,19 +2,17 @@
 #define TREE_H
 #include <stdint.h>
 #include <stdio.h>
-#include <X11/Xlib.h>
 #include "types.h"
 #include "stack.h"
-#define from(x) (((x)->parent->children[L] == (x)) ? L : R)
+#define IN(x) (((x)->parent->subregion[L] == (x)) ? L : R)
 /*
- * A node in the binary split tree of windows.
+ * A region of the screen, represented by a node in a binary split tree
  */
-typedef Window Window;
 typedef struct node {
 	union {
 		Window win;
 		struct /*split*/ {
-			struct node *children[2];
+			struct node *subregion[2];
 			float weight;
 			Orientation orient;
 		};
@@ -22,62 +20,65 @@ typedef struct node {
 	struct node *parent;
 	Type type;
 	uint8_t tags;
-} Node;
+} Region;
 
 /*
  * A binary split tree of windows.
- * contains a pointer  to the root,
+ * contains a pointer to the root(screen),
  * the current focused node,
  * and a bit array for the tag filter of the current view
  */
 typedef struct {
-	Node *root;
-	Node *curr;
+	Region *screen;
+	Region *curr;
 	uint8_t filter;
 } Tree;
 
-void printtree(Node *, FILE *);
+/* Debug printing
+ *
+ */
+void printtree(Region *, FILE *, Args a);
 
-/* Recursively frees a tree downwards from the given node
+/* A wrapper for free() to allow it to be called with trickle() to free
+ * an entire tree
  * 
- * PARAMS: The node to start freeing from
+ * TODO: this should probably be defined within the main file so we can
+ * also free any Windows attached
  */
-void freetree(Node *);
+void freeregion(Region *, Args);
 
-/* Splits the given node in half with the given orientation and weight
+/* Splits the given region in half with the given orientation and weight
  *
- * PARAMS: The node to split, the split's orientation and weight
+ * PARAMS: The region to split, the split's orientation and weight
  *
- * RETURNS: A pointer to the new split node
+ * RETURNS: A pointer to the new split
  */
-Node *addsplit(Node *, Orientation, float);
+Region *split(Region *, Orientation, float);
 
-/* Adds a client to the given node on the given side with the given tags
+/* Adds a client to the given region on the given side with the given tags
  *
- * PARAMS: The node which will parent the new node, the side to which
- * the new node should belong, and the tags the new node will have
- * TODO: add more params for x11 stuff
+ * PARAMS: The region which will contain the new client, the side to which
+ * the client should belong, and the tags the client will have
  *
- * RETURNS: A pointer to the new node
- * NOTE: Must check the return value to see if it should become the new root
+ * RETURNS: A pointer to the Region
+ * NOTE: Must check the return value to see if it should become the screen(root)
  */
-Node *addclient(Node *, Window, Side, uint8_t);
+Region *spawn(Region *, Window, Side, uint8_t);
 
-/* Recursively flips the orientation of all splits downwards from
- * the given node
+/* Reflects the given region about the line x=y
  *
- * PARAMS: The node to start from
+ * PARAMS: The region to reflect
  */
-void reflect(Node *);
+void reflect(Region *);
 
-/* Finds the node which contains the given window, looking downwards
- * from the given node
+/* Finds the subregion which contains the given window within the specified
+ * region
  *
- * PARAMS: The node to start from, the window whose node we want to find
+ * PARAMS: The region to search within, the window whose node we want to find
  *
- * RETURNS: A pointer to the node which contains the given window
+ * RETURNS: A pointer to the region(leaf) which contains the given window
  */
-Node *find(Node *, Window);
+Region *find(Region *, Window);
 
 /* Orphans the given node, detacting it from its parent and causing its
  * sibling to superscede it
@@ -88,26 +89,26 @@ Node *find(Node *, Window);
  * RETURNS: A pointer to the node which takes the place of the killed node.
  * NOTE: Must check the return value to see if it should become the new root
  */
-Node *orphan(Node *);
+Region *orphan(Region *);
 
 /* Shifts the width of the given node in the given direction according
  * to the view specified by the filter
  *
- * PARAMS: The node we want to resize, the direction in which are are 
+ * PARAMS: The Region we want to resize, the direction in which are are 
  * resizing, and the filter which specifies our view
  */
-void shiftwidth(Node *, const Direction, uint8_t);
+void shiftwidth(Region *, const Direction, uint8_t);
 
 /* Finds the closest neighbor (geometrically as the windows/splits are
- * laid out on the screen) to the given node in the given direction
+ * laid out on the screen) to the given Region in the given direction
  * according to the view specified by the filter
  *
- * PARAMS: The node to start from, the direction we are going, and the 
+ * PARAMS: The Region to start from, the direction we are going, and the 
  * current filter
  *
  * RETURNS: The closest neighbor found
  */
-Node *findneighbor(Node *, const Direction, uint8_t);
+Region *findneighbor(Region *, const Direction, uint8_t);
 
 /* Moves the given node in the given direction with the given filter
  *
@@ -116,12 +117,12 @@ Node *findneighbor(Node *, const Direction, uint8_t);
  * RETURNS: A pointer to the node which replaces the moved node
  * NOTE: Must check return value to see if node should become the new root
  */
-Node *moveclient(Node *, const Direction, uint8_t);
+Region *moveclient(Region *, const Direction, uint8_t);
 
 /* Recursively applies function F downwards from n with Args a and transform
  * T.
- * Each split encountered applies T to a and recursively calls r_apply to
- * the children.
+ * Each split encountered applies T to a and recursively calls trickle to
+ * each subregion.
  * Upon reaching a leaf node, F(n,a) is called. Note that T is not applied to
  * a on the final call
  *
@@ -131,5 +132,15 @@ Node *moveclient(Node *, const Direction, uint8_t);
  *
  * RETURNS: void
  */
-void trickle(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args));
+void trickle(Region *n, void(*F)(Region *, Args), Args a, Args(*T)(Region *, Args));
+
+
+/* Calculates the geometry of a Region given its parent's dimensions
+ * as an Args(geo). Returns as an Args(geo)
+ *
+ * PARAMS: The node and its parent's dimension as an Args(geo)
+ *
+ * RETURNS: The dimensions of the given node as an Args(geo)
+ */
+Args partition(Region *, Args);
 #endif

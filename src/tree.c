@@ -3,183 +3,168 @@
 #include "../lib/util.h"
 #include <curses.h>
 #include <stdio.h>
-#define other(x) (((x)+1)%2)
 
-void printtree(Node *n, FILE *f)
+void printtree(Region *r, FILE *f, Args a)
 {
-	if (!n) {
+	if (!r) {
 		fprintf(f, "NULL");
 		return;
 	}
-	if (n->type == split) {
+	if (r->type == SPLIT) {
 		fprintf(f, "(");
-		printtree(n->children[L], f);
-		fprintf(f, (n->orient == H) ? "-" : "|");
-		printtree(n->children[R], f);
+		printtree(r->subregion[L], f, partition(r->subregion[L], a));
+		fprintf(f, (r->orient == H) ? "-" : "|");
+		printtree(r->subregion[H], f, partition(r->subregion[L], a));
 		fprintf(f, ")");
 		return;
 	}
-	fprintf(f, "%ld", n->win);
+	fprintf(f, "%ld - {(%d,%d) %dx%d}", (long)(r->win), a.geo.x, a.geo.y,
+			                                            a.geo.w, a.geo.h);
 }
 
-void freetree(Node *n)
+void freeregion(Region *r, Args _)
 {
-	if (!n) return;
-	if (n->type == split) {
-		freetree(n->children[L]);
-		freetree(n->children[R]);
-	} else {
-		//delwin(n->win); 
-	}
-	free(n);
+	free(r);
 }
 
-static uint8_t g_updatetags(Node *n)
-{
-	if (!n) return 0;
-	if (n->type == split)
-		n->tags = g_updatetags(n->children[L])
-			    | g_updatetags(n->children[R]);
-	return n->tags;
-}
 
-static void updatetags(Node *n)
+static void updatetags(Region *r)
 {
-	if (!n) return;
-	n->tags = n->children[L]->tags | n->children[R]->tags;
-	updatetags(n->parent);
+	if (!r) return;
+	r->tags = r->subregion[L]->tags | r->subregion[R]->tags;
+	updatetags(r->parent);
 	return;
 }
 
-Node *addsplit(Node *tosplit, Orientation o, float weight)
+Region *split(Region *tosplit, Orientation o, float weight)
 {
 	if (!tosplit) return NULL;
-	Node *new = malloc(sizeof(Node));
+	Region *new = malloc(sizeof(Region));
 	if (!new) return NULL;
-	new->type = split;
+	new->type = SPLIT;
 	new->orient = o;
 	new->weight = weight;
 	new->parent = tosplit->parent;
 	if (new->parent)
-		new->parent->children[from(tosplit)] = new;
+		new->parent->subregion[IN(tosplit)] = new;
 	tosplit->parent = new;
-	new->children[L] = tosplit;
-	new->children[R] = NULL;
+	new->subregion[L] = tosplit;
+	new->subregion[R] = NULL;
 	new->tags = tosplit->tags;
 	/*if (!(new->parent)) t->root = new; --TODO: this check happens at call site*/
 	return new;
 }
 
-Node *addclient(Node *currsplit, Window w, Side child, uint8_t tags)
+Region *spawn(Region *currsplit, Window w, Side child, uint8_t tags)
 {
 	if (!currsplit) {
-		Node *new = malloc(sizeof(Node));
+		Region *new = malloc(sizeof(Region));
 		new->parent = NULL;
-		new->type = client;
+		new->type = CLIENT;
 		new->tags = tags;
 		new->win = w;
 		return new;
 	}
-	if (currsplit->children[child]) 
-		currsplit->children[other(child)] = currsplit->children[child];
-	currsplit->children[child] = malloc(sizeof(Node));
-	if (!(currsplit->children[child])) return NULL;
-	currsplit->children[child]->parent = currsplit;
-	currsplit->children[child]->type = client;
-	currsplit->children[child]->tags = tags;
-	currsplit->children[child]->win = w;
+	if (currsplit->subregion[child]) 
+		currsplit->subregion[other(child)] = currsplit->subregion[child];
+	currsplit->subregion[child] = malloc(sizeof(Region));
+	if (!(currsplit->subregion[child])) return NULL;
+	currsplit->subregion[child]->parent = currsplit;
+	currsplit->subregion[child]->type = CLIENT;
+	currsplit->subregion[child]->tags = tags;
+	currsplit->subregion[child]->win = w;
 	updatetags(currsplit);
-	return currsplit->children[child];	
+	return currsplit->subregion[child];	
 }
 
 /* --FOR SPAWNING--
    t->curr = addclient(addsplit(t->curr, d.o, 0.5), t->filter, d.s);
 NOTE: we just need addclient to handle null.
-if we don't have enough memory to open another client, we just dont!
+if we don't have enough memory to open another CLIENT, we just dont!
 }*/
 
-static Node *findnext(Node *n, const Direction d, uint8_t filter, Stack *breadcrumbs)
+static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *breadcrumbs)
 {	
-	if (n->type == split && n->orient == d.o && n->children[other(d.s)]->tags & filter)
-		return findnext(n->children[other(d.s)], d, filter, breadcrumbs);
-	if (n->type == split && n->orient == d.o)
-		return findnext(n->children[d.s], d, filter, breadcrumbs);
+	if (r->type == SPLIT && r->orient == d.o && r->subregion[other(d.s)]->tags & filter)
+		return findnext(r->subregion[other(d.s)], d, filter, breadcrumbs);
+	if (r->type == SPLIT && r->orient == d.o)
+		return findnext(r->subregion[d.s], d, filter, breadcrumbs);
 	Side crumb = pop(breadcrumbs);
-	if (n->type == split && n->children[crumb]->tags & filter)
-		return findnext(n->children[crumb], d, filter, breadcrumbs);
-	if (n->type == split)
-		return findnext(n->children[other(crumb)], d, filter, breadcrumbs);
-	return n;
+	if (r->type == SPLIT && r->subregion[crumb]->tags & filter)
+		return findnext(r->subregion[crumb], d, filter, breadcrumbs);
+	if (r->type == SPLIT)
+		return findnext(r->subregion[other(crumb)], d, filter, breadcrumbs);
+	return r;
 }
 
-static Node *findparent(Node *n, uint8_t filter, const Direction d, Stack *breadcrumbs)
+static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *breadcrumbs)
 {
-	Node *parent = n->parent;
+	Region *parent = r->parent;
 	while (parent) {
-		int nobacktrack = (d.s != FAKESIDE) ? parent->children[d.s] != n : 1; //TODO: this is kinda hacky...
-		int tagmatch = (d.s != FAKESIDE) ? parent->children[d.s]->tags & filter : 1;
+		int nobacktrack = (d.s != FAKESIDE) ? parent->subregion[d.s] != r : 1; //TODO: this is kinda hacky...
+		int tagmatch = (d.s != FAKESIDE) ? parent->subregion[d.s]->tags & filter : 1;
 		if (parent->orient == d.o && nobacktrack && tagmatch)
 			return parent;
 		else if (parent->orient != d.o)
-			push(breadcrumbs, from(n));
-		n = parent;
+			push(breadcrumbs, IN(r));
+		r = parent;
 		parent = parent->parent;
 	}
 	return parent;
 }
 
-Node *findneighbor(Node *curr, const Direction d, uint8_t filter)
+Region *findneighbor(Region *curr, const Direction d, uint8_t filter)
 {
 	if (!curr) return NULL;
 	Stack *breadcrumbs = initstack();
-	Node *parent = findparent(curr, filter, d, breadcrumbs);
+	Region *parent = findparent(curr, filter, d, breadcrumbs);
 	if (parent)
-		curr = findnext(parent->children[d.s], d, filter, breadcrumbs);
+		curr = findnext(parent->subregion[d.s], d, filter, breadcrumbs);
 	freestack(breadcrumbs);
 	return curr;
 }
 
-void reflect(Node *n)
+void reflect(Region *r)
 {
-	if (n->type == split) {
-		n->orient = other(n->orient);
-		reflect(n->children[L]);
-		reflect(n->children[R]);
+	if (r->type == SPLIT) {
+		r->orient = other(r->orient);
+		reflect(r->subregion[L]);
+		reflect(r->subregion[R]);
 	}
 }
 
-Node *find(Node *n,  Window w)
+Region *find(Region *r,  Window w)
 {
-	if (!n) return NULL;
-	if (n->type == split) {
-		Node *tmp;
-		if ((tmp = find(n->children[L], w))) return tmp;
-		if ((tmp = find(n->children[R], w))) return tmp;
+	if (!r) return NULL;
+	if (r->type == SPLIT) {
+		Region *tmp;
+		if ((tmp = find(r->subregion[L], w))) return tmp;
+		if ((tmp = find(r->subregion[R], w))) return tmp;
 	}
-	if (n->type == client && n->win == w) return n;
+	if (r->type == CLIENT && r->win == w) return r;
 	return NULL;
 }
 
-Node *orphan(Node *n)
+Region *orphan(Region *r)
 {
-	if (!n) return NULL;
-	Node *parent = n->parent;
+	if (!r) return NULL;
+	Region *parent = r->parent;
 	if (!parent) return NULL; /*probably no*/
 
-	n = parent->children[other(from(n))];
+	r = parent->subregion[other(IN(r))];
 
 	if (parent->parent) {
-		parent->parent->children[from(parent)] = n;
-		n->parent = parent->parent;
+		parent->parent->subregion[IN(parent)] = r;
+		r->parent = parent->parent;
 	} else {
-		n->parent = NULL;
+		r->parent = NULL;
 	}
 	free(parent);
-	updatetags(n->parent);
-	return n;
+	updatetags(r->parent);
+	return r;
 	/* This is how orphan() should be used in the main file
 	 * ```
-	 * Node *tmp = orphan(t->curr)
+	 * Region *tmp = orphan(t->curr)
 	 * free(t->curr);
 	 * t->curr = tmp;
 	 * if (!t->curr->parent) t->root = t->curr;
@@ -189,12 +174,12 @@ Node *orphan(Node *n)
 }
 
 
-void shiftwidth(Node *n, const Direction d, uint8_t filter)
+void shiftwidth(Region *r, const Direction d, uint8_t filter)
 {
-	if (!n) return;
-	Node *parent = findparent(n, filter, (Direction){ d.o, FAKESIDE }, NULL);
-	if (!parent && n->parent)
-		parent = findparent(n->parent->children[other(from(n))],
+	if (!r) return;
+	Region *parent = findparent(r, filter, (Direction){ d.o, FAKESIDE }, NULL);
+	if (!parent && r->parent)
+		parent = findparent(r->parent->subregion[other(IN(r))],
 							filter, (Direction){ d.o, FAKESIDE }, NULL);
 	if (parent && d.s == R)
 		parent->weight = MAX(0.1,MIN(parent->weight+0.1, 0.9));
@@ -202,59 +187,74 @@ void shiftwidth(Node *n, const Direction d, uint8_t filter)
 		parent->weight = MIN(0.9,MAX(parent->weight-0.1, 0.1));
 }
 
-Node *moveclient(Node *n, const Direction d, uint8_t filter)
+Region *moveclient(Region *r, const Direction d, uint8_t filter)
 { 
-	if (!n) return NULL;
-	if (!n->parent) return n;
-	if (n->parent->orient != d.o) {
-		Side s = from(n); 
+	if (!r) return NULL;
+	if (!r->parent) return r;
+	if (r->parent->orient != d.o) {
+		Side s = IN(r); 
 		if (s != d.s) {
-			n->parent->children[s] = n->parent->children[other(s)];
-			n->parent->children[other(s)] = n;
+			r->parent->subregion[s] = r->parent->subregion[other(s)];
+			r->parent->subregion[other(s)] = r;
 		}
-		n->parent->orient = d.o;
-		return n->parent->children[s];
+		r->parent->orient = d.o;
+		return r->parent->subregion[s];
 	}
 
-	Node *neighbor = findneighbor(n, d, filter);
-	if (neighbor != n && neighbor->parent == n->parent) {
-		Side s = from(neighbor);
-		neighbor->parent->children[s] = n;
-		neighbor->parent->children[other(s)] = neighbor;
+	Region *neighbor = findneighbor(r, d, filter);
+	if (neighbor != r && neighbor->parent == r->parent) {
+		Side s = IN(neighbor);
+		neighbor->parent->subregion[s] = r;
+		neighbor->parent->subregion[other(s)] = neighbor;
 		return neighbor;
 	}
 
 	Side s = d.s;
-	if (neighbor == n) for(; neighbor->parent; neighbor = neighbor->parent); 
+	if (neighbor == r) for(; neighbor->parent; neighbor = neighbor->parent); 
 	else s = other(d.s);
 
-	neighbor = addsplit(neighbor, d.o, 0.5);
-	if (neighbor->children[s])
-		neighbor->children[other(s)] = neighbor->children[s];
-	neighbor->children[s] = n;
-	Node *tmp = orphan(n);
-	n->parent = neighbor;
+	neighbor = split(neighbor, d.o, 0.5);
+	if (neighbor->subregion[s])
+		neighbor->subregion[other(s)] = neighbor->subregion[s];
+	neighbor->subregion[s] = r;
+	Region *tmp = orphan(r);
+	r->parent = neighbor;
 	return tmp;
 	/* Within the main file we will have to do the same check as for orphan()
 	 *
-	 * Node *tmp = move(...);
+	 * Region *tmp = move(...);
 	 * t->curr = tmp;
 	 * if (!t->curr->parent) t->root = t->curr;
 	 * t->curr = findfirst(t->curr, t->filter);
-	 * //in fact it is the same aside from freeing the current, so perhaps
+	 * //in fact it is the same aside IN freeing the current, so perhaps
 	 * //there can be some DRYing
 	 */
 }
 
-void trickle(Node *n, void(*F)(Node *, Args), Args a, Args(*T)(Node *, Args))
+void trickle(Region *r, void(*F)(Region *, Args), Args a, Args(*T)(Region *, Args))
 {
-	if (!n) return;
-	if (n->type == split) {
-		trickle(n->children[L],F,T(n->children[L],a),T);
-		trickle(n->children[R],F,T(n->children[R],a),T);
+	if (!r) return;
+	if (r->type == SPLIT) {
+		trickle(r->subregion[L],F,T(r->subregion[L],a),T);
+		trickle(r->subregion[R],F,T(r->subregion[R],a),T);
 		return;
 	}
-	F(n,a);
+	F(r,a);
 }
-#undef other
-//#undef from
+
+Args partition(Region *r, Args a)
+{
+	if (!r || !r->parent) return a;
+    Side fr = IN(r);
+    r = r->parent;
+	Orientation o = r->orient;/*cache coherency*/
+	float fa = r->weight;
+    return (Args){ .geo = {
+                         .x = a.geo.x + fr * a.geo.w * fa * other(o),
+                         .y = a.geo.y + fr * a.geo.h * fa * o,
+						 .w = MAX(a.geo.w * o,
+								  a.geo.w * (2 * fa * fr - fa - fr + 1) * other(o)),
+						 .h = MAX(a.geo.h * other(o),
+								  a.geo.h * (2 * fa * fr - fa - fr + 1) * o)
+	                } };
+}
