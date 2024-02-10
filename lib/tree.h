@@ -47,6 +47,14 @@ void printtree(Region *, FILE *, Args a);
  */
 void freeregion(Region *, Args);
 
+/* Updates the tags of the given split Region to be the union of its
+ * childrens' tags, then travels to its parent and repeats until reaching the
+ * root
+ *
+ * PARAMS: The region whose tags we want to update. Should be a split region.
+ */
+void updatetags(Region *);
+
 /* Splits the given region in half with the given orientation and weight
  *
  * PARAMS: The region to split, the split's orientation and weight
@@ -78,7 +86,7 @@ void reflect(Region *);
  *
  * RETURNS: A pointer to the region(leaf) which contains the given window
  */
-Region *find(Region *, Window);
+Region *find(Region *, Window, uint8_t);
 
 /* Orphans the given node, detacting it from its parent and causing its
  * sibling to superscede it

@@ -29,7 +29,7 @@ void freeregion(Region *r, Args _)
 }
 
 
-static void updatetags(Region *r)
+void updatetags(Region *r)
 {
 	if (!r) return;
 	r->tags = r->subregion[L]->tags | r->subregion[R]->tags;
@@ -134,15 +134,15 @@ void reflect(Region *r)
 	}
 }
 
-Region *find(Region *r,  Window w)
+Region *find(Region *r,  Window w, uint8_t filter)
 {
 	if (!r) return NULL;
-	if (r->type == SPLIT) {
+	if (r->type == SPLIT && r->tags & filter) {
 		Region *tmp;
-		if ((tmp = find(r->subregion[L], w))) return tmp;
-		if ((tmp = find(r->subregion[R], w))) return tmp;
+		if ((tmp = find(r->subregion[L], w, filter))) return tmp;
+		if ((tmp = find(r->subregion[R], w, filter))) return tmp;
 	}
-	if (r->type == CLIENT && r->win == w) return r;
+	if (r->type == CLIENT && (!w || r->win == w) && r->tags & filter) return r;//hack to find first win
 	return NULL;
 }
 
@@ -157,23 +157,13 @@ Region *orphan(Region *r)
 	if (parent->parent) {
 		parent->parent->subregion[IN(parent)] = r;
 		r->parent = parent->parent;
+		updatetags(r->parent);
 	} else {
 		r->parent = NULL;
 	}
 	free(parent);
-	updatetags(r->parent);
 	return r;
-	/* This is how orphan() should be used in the main file
-	 * ```
-	 * Region *tmp = orphan(t->curr)
-	 * free(t->curr);
-	 * t->curr = tmp;
-	 * if (!t->curr->parent) t->root = t->curr;
-	 * t->curr = findfirst(t->curr, t->filter);
-	 * ```
-	 */
 }
-
 
 void shiftwidth(Region *r, const Direction d, uint8_t filter)
 {
@@ -199,7 +189,7 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 			r->parent->subregion[other(s)] = r;
 		}
 		r->parent->orient = d.o;
-		return r->parent->subregion[s];
+		return r->parent;
 	}
 
 	Region *neighbor = findneighbor(r, d, filter);
@@ -207,12 +197,12 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 		Side s = IN(neighbor);
 		neighbor->parent->subregion[s] = r;
 		neighbor->parent->subregion[other(s)] = neighbor;
-		return neighbor;
+		return neighbor->parent;
 	}
 
 	Side s = d.s;
-	if (neighbor == r) for(; neighbor->parent; neighbor = neighbor->parent); 
-	else s = other(d.s);
+	if (neighbor != r) s = other(d.s);
+	else for(; neighbor->parent; neighbor = neighbor->parent); 
 
 	neighbor = split(neighbor, d.o, 0.5);
 	if (neighbor->subregion[s])
@@ -220,16 +210,7 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 	neighbor->subregion[s] = r;
 	Region *tmp = orphan(r);
 	r->parent = neighbor;
-	return tmp;
-	/* Within the main file we will have to do the same check as for orphan()
-	 *
-	 * Region *tmp = move(...);
-	 * t->curr = tmp;
-	 * if (!t->curr->parent) t->root = t->curr;
-	 * t->curr = findfirst(t->curr, t->filter);
-	 * //in fact it is the same aside IN freeing the current, so perhaps
-	 * //there can be some DRYing
-	 */
+	return (tmp->parent) ? neighbor : tmp;
 }
 
 void trickle(Region *r, void(*F)(Region *, Args), Args a, Args(*T)(Region *, Args))
@@ -249,16 +230,16 @@ Args partition(Region *r, Args a)
 	Side fr = IN(r);
 	uint8_t vis = !!(r->tags & a.geo.filter);
 	r = r->parent;
-	uint8_t fill = !!(r->subregion[NT(fr)]->tags & a.geo.filter);
+	uint8_t fill = !(r->subregion[NT(fr)]->tags & a.geo.filter);
 	Orientation o = r->orient;
 	float fa = r->weight;
 	return (Args){ .geo = {
-	               .x = (a.geo.x + fr * (NT(o)&NT(fill)) * a.geo.w * fa),
-	               .y = (a.geo.y + fr * (o&NT(fill)) * a.geo.h * fa),
+	               .x = (a.geo.x + (fr & NT(fill) & NT(o)) * a.geo.w * fa),
+	               .y = (a.geo.y + (fr & NT(fill) & o)     * a.geo.h * fa),
 	               .w = vis * MAX((o|fill) * a.geo.w,
-	                        NT(o) * a.geo.w * (2 * fa * fr - fa - fr + 1)),
+	                        a.geo.w * (2 * fa * fr - fa - fr + 1)),
 	               .h = vis * MAX((NT(o)|fill) * a.geo.h,
-	                        o * a.geo.h * (2 * fa * fr - fa - fr + 1)),
+	                        a.geo.h * (2 * fa * fr - fa - fr + 1)),
 	               .filter = a.geo.filter
 	               }
 	             };

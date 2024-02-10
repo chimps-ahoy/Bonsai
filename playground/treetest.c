@@ -10,6 +10,7 @@
 #define UNCTRL 0x60
 #define SHIFT ~32
 #define UNSHIFT ~SHIFT
+#define shiftnum(x) (((x)=='$') ? 4 : (((x)=='#') ? 3 : (((x)=='@') ? 2 : ((((x)=='!') ? 1 : 0)))))
 
 static Tree *t; //kinda makes more sense to not even use the struct for this?
 				//just have 3 statics?
@@ -17,7 +18,7 @@ static Tree *t; //kinda makes more sense to not even use the struct for this?
 
 void debugpr(Region *r, Args a)
 {
-	fprintf(stderr, "%p - {(%d,%d)%dX%d}\r", r->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
+	fprintf(stderr, "%p - {(%d,%d)%dX%d}\n", r->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
 }
 
 Args dummyt(Region *_, Args __)
@@ -32,6 +33,7 @@ void draw(Region *r, Args a)
 		delwin(r->win);
 	}
 	r->win = newwin(a.geo.h, a.geo.w, a.geo.y, a.geo.x);
+	if (!a.geo.w || !a.geo.h) return;
 	if (r == t->curr) {
 		box(r->win, (int)'+', (int)'+');
 	} else {
@@ -51,7 +53,7 @@ int main(void)
 	Region *r;
 	t->screen = NULL;
 	t->curr = NULL;
-	t->filter = 1<<1;
+	t->filter = 1;
 
 	WINDOW *menubar = newwin(4,80,0,0);
 
@@ -77,7 +79,8 @@ int main(void)
 			case 'k'&SHIFT:
 			case 'j'&SHIFT:
 			case 'h'&SHIFT:
-				moveclient(t->curr, keymap[HASH(in|UNSHIFT)], t->filter);
+			r = moveclient(t->curr, keymap[HASH(in|UNSHIFT)], t->filter);
+				if (r && !r->parent) t->screen = r;
 				break;
 			case 'r':
 				reflect(t->screen);
@@ -86,14 +89,16 @@ int main(void)
 			case '2':
 			case '3':
 			case '4':
-				t->filter = 1 << (in - '0');
+				t->filter = 1 << (in - '0' - 1);
+				t->curr = find(t->screen,0,t->filter);
 				break;
 			case '!':
 			case '@':
 			case '#':
 			case '$':
-				/*t->curr->tags ^= (1 << shiftnum(in));
-				updatetags(t->curr->parent);*/
+				t->curr->tags ^= (1 << (shiftnum(in)-1));
+				updatetags(t->curr->parent);
+				t->curr = find(t->screen,0,t->filter);
 				break;
 			case '<':
 				shiftwidth(t->curr, WEST, t->filter);
@@ -111,22 +116,25 @@ int main(void)
 				r = orphan(t->curr);
 				free(t->curr);
 				if (!r || !r->parent) t->screen = r;
-				t->curr = r;
+				t->curr = find(r,0,t->filter);
 				break;
 		}
+		uint8_t tags = (t->curr) ? t->curr->tags : 0;
+		trickle(t->screen, draw, (Args){.geo={0,getmaxy(menubar),80,24,t->filter}}, partition);
+		fprintf(stderr, "input: %s\n", keyname(in));
+		trickle(t->screen, debugpr, (Args){.geo={.x=0,.y=0,.w=1920,.h=1080,.filter=t->filter}}, partition);
+		fprintf(stderr, "\n\n");
 		box(menubar, 0, (int)'~');
-		uint8_t tags = (t->curr) ? t->curr->tags >> 1 : 0;
 		mvwprintw(menubar, 1, 1, "Bonsai. | filter: %.4b | current tags: %.4b"
-				" | key pressed : %s |", (t->filter>>1), tags, keyname(in));
-		trickle(t->screen, draw, (Args){.geo={0,getmaxy(menubar),80,24}}, partition);
-		trickle(t->screen, debugpr, (Args){.geo={.x=0,.y=0,.w=1920,.h=1080}}, partition);
+				" | key pressed : %s |", t->filter, tags, keyname(in));
 		wrefresh(menubar);
 		refresh();
 		in = getch();
 	}
-	delwin(menubar);
 
 	trickle(t->screen,freeregion,(Args){0},dummyt);
+	delwin(menubar);
+	delwin(stdscr);
 	endwin();
 	return EXIT_SUCCESS;
 }
