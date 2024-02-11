@@ -10,7 +10,7 @@
  */
 typedef struct node {
 	union {
-		Window win;
+		Window win;/*client*/
 		struct /*split*/ {
 			struct node *subregion[2];
 			float weight;
@@ -32,7 +32,7 @@ typedef struct {
 	Region *screen;
 	Region *curr;
 	uint8_t filter;
-} Tree;
+} Monitor;
 
 /* Debug printing
  *

@@ -1,7 +1,7 @@
 include config.mk
 
 # fo debugin
-CFLAGS += -g
+CFLAGS += -g -DDEBUG
 
 $(EXEC) : $(OBJECTS)
 	$(CC) $(CFLAGS) $^ -o $(BINDIR)/$@

@@ -1,6 +1,6 @@
 #include <stdint.h>
-#include <ncurses.h>
-//#include <X11/Xlib.h>
+//#include <ncurses.h>
+#include <X11/Xlib.h>
 #ifndef TYPES
 #define TYPES
 #ifdef CURSES_H

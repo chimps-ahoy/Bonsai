@@ -71,7 +71,7 @@ int main(void)
 			case 'j'&CTRL:
 			case 'h'&CTRL:
 				t->curr = spawn(split(t->curr, keymap[HASH(in|UNCTRL)].o,
-							        0.5), NULL, keymap[HASH(in|UNCTRL)].s, t->filter);
+							        0.75), NULL, keymap[HASH(in|UNCTRL)].s, t->filter);
 				if (!t->curr->parent) t->screen = t->curr;
 				else if (!t->curr->parent->parent) t->screen = t->curr->parent;
 				break;

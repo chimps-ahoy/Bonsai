@@ -1,5 +1,5 @@
 EXEC = Bonsai
-VERSION = 0.1
+VERSION = 0.0
 
 TOPDIR := $(shell pwd)
 SRCDIR := $(TOPDIR)/src

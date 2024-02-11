@@ -1,65 +1,26 @@
 #include <stdlib.h>
 #include <stdio.h>
+
 #include "../lib/types.h"
 #include "../lib/tree.h"
-#include "../lib/util.h"
 #include "../lib/config.h"
 
-static Tree *t = NULL;
+#define VIEW_INFO ((Args){.geo = {.x=0,.y=0,.w=sw,.h=sh,.filter=m->filter}})
+
+static Monitor *m = NULL;
 static Display *dpy = NULL;
 static int screen;
 static Window root;
 static int sw;
 static int sh;
 
-Args partition(Node *n, Args a)
+void draw(Region *n, Args a)
 {
-	if (!n || !n->parent) return a;
-    Side from = from(n);
-    n = n->parent;
-    return (Args){
-		        .geo = {
-                 .x = a.geo.x + from * a.geo.w * n->weight * !n->orient,
-                 .y = a.geo.y + from * a.geo.h * n->weight * n->orient,
-                 .w = MAX(a.geo.w*n->orient, //foo
-						  a.geo.w*n->weight*!n->orient*!from 
-						 +a.geo.w*(1-n->weight)*!n->orient*from),
-                 .h = MAX(a.geo.h*!n->orient,
-						  a.geo.h*n->weight*n->orient*!from 
-						 +a.geo.h*(1-n->weight)*n->orient*from)
-				}
-            };
-}
-
-void draw(Node *n, Args a)
-{
-	XUnmapWindow(dpy, n->win);
-	XMoveResizeWindow(dpy, n->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
-	XMapWindow(dpy, n->win);
-}
-
-void map(XEvent *_e)
-{
-	t->curr = addclient(addsplit(t->curr, H, 0.75), _e->xmap.window, L, t->filter);
-	if (!t->curr->parent) t->root = t->curr;
-	else if (!t->curr->parent->parent) t->root = t->curr->parent;
-	trickle(t->root, draw, (Args){.geo={.w=sw,.h=sh}}, partition);
-}
-
-void unmap(XEvent *_e)
-{
-	Node *m = NULL;
-	for (int i = 0; !m && i<4; i++)
-		m = findneighbor(t->curr, (Direction){i&2,i&1}, t->filter);
-	Node *n = orphan(find(t->root, _e->xunmap.window));
-	free(t->curr);
-	if (!n || !n->parent) t->root = n;
-	t->curr = m;
-	trickle(t->root, draw, (Args){.geo={.w=sw,.h=sh}}, partition);
-}
-
-void configure(XEvent *_e)
-{
+	if (a.geo.w && a.geo.h) {
+		fprintf(stderr, "attempting to draw: %ld\n", n->win);
+		XMoveResizeWindow(dpy, n->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
+		XMapWindow(dpy, n->win);
+	}
 }
 
 int otherwmdetected(Display *dpy, XErrorEvent *ee)
@@ -76,13 +37,38 @@ int xerror(Display *dpy, XErrorEvent *ee)
 	return -1; /*UNREACHABLE*/
 }
 
+static void create(XEvent *e)
+{
+	static Orientation o = H;
+	static Side s = L;
+	m->curr = spawn(split(m->curr, o^=1, 0.5), e->xmap.window, s, m->filter);
+	if (!m->curr->parent) m->screen = m->curr;
+	else if (!m->curr->parent->parent) m->screen = m->curr->parent;
+	s^=o;
+}
+
+static void drawscreen(XEvent *e)
+{
+	trickle(m->screen, draw, VIEW_INFO, partition);
+}
+
+static void destroy(XEvent *e)
+{
+	Region *r = find(m->screen,e->xunmap.window,~0);
+	fprintf(stderr, "r = %p\n", r);
+	Region *r2 = orphan(r);
+	free(r);
+	if (r2 && !r2->parent) m->screen = r2;
+	trickle(m->screen, draw, VIEW_INFO, partition);//TODO: i think this is causing the b ad?
+}
+
 static void(*handler[LASTEvent])(XEvent *) = {
-	//[CreateNotify] = new,
-	//[ConfigureRequest] = configure,
-	[MapRequest] = map,
-	[MapNotify] = map,
-	[UnmapNotify] = unmap,
-	[DestroyNotify] = unmap,
+	/*[ConfigureRequest] = configure,*/
+	[CreateNotify] = create,
+	[MapRequest] = drawscreen,
+	[MapNotify] = drawscreen,
+	[UnmapNotify] = drawscreen,
+	[DestroyNotify] = destroy,
 };
 
 int main(void)
@@ -92,17 +78,25 @@ int main(void)
 		fprintf(stderr, "display didn't open.");
 		return EXIT_FAILURE;
 	}
+
 	screen = DefaultScreen(dpy);
+#ifdef DEBUG
+	sw = 1920;
+	sh = 1080;
+#else
 	sw = DisplayWidth(dpy, screen);
 	sh = DisplayHeight(dpy, screen);
+#endif
 	root = RootWindow(dpy, screen);
 
-	t = malloc(sizeof(Tree));
-	t->root = t->curr = NULL;
-	t->filter = ~0;
+	m = malloc(sizeof(Monitor));
+	m->screen = m->curr = NULL;
+	m->filter = 1;
 
 	XSetErrorHandler(otherwmdetected);
-	XSelectInput(dpy, DefaultRootWindow(dpy), SubstructureRedirectMask);
+	XSelectInput(dpy, DefaultRootWindow(dpy), SubstructureRedirectMask
+	                                         |SubstructureNotifyMask
+	                                         |StructureNotifyMask);
 	XSync(dpy, False);
 	XSetErrorHandler(xerror);
 	XSync(dpy, False);
@@ -111,8 +105,12 @@ int main(void)
 		XEvent e;
 		XNextEvent(dpy, &e);
 		if (handler[e.type]) {
+			fprintf(stderr, "\nevent %d\n", e.type);
 			handler[e.type](&e);
-		} else fprintf(stderr, "event ignored %d", e.type);
+		} else fprintf(stderr, "\nevent ignored %d\n", e.type);
+#ifdef DEBUG
+		printtree(m->screen, stderr, VIEW_INFO);
+#endif
 	}
 
 	return EXIT_SUCCESS;
