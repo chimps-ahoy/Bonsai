@@ -1,7 +1,8 @@
-#include "types.h"
-#include <stdlib.h>
 #ifndef STACK_H
 #define STACK_H
+
+#include <types.h>
+
 typedef struct stack Stack;
 
 /*

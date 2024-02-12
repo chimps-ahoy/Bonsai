@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "../lib/types.h"
-#include "../lib/tree.h"
-#include "../lib/stack.h"
-#include "../lib/util.h"
+#include <types.h>
+#include <tiles.h>
+#include <stack.h>
+#include <util.h>
 
 void printtree(Region *r, FILE *f, Args a)
 {
@@ -15,7 +15,7 @@ void printtree(Region *r, FILE *f, Args a)
 	if (r->type == SPLIT) {
 		fprintf(f, "(");
 		printtree(r->subregion[L], f, partition(r->subregion[L], a));
-		fprintf(f, (r->orient == H) ? " - " : " | ");
+		fprintf(f, (r->o == H) ? " - " : " | ");
 		printtree(r->subregion[H], f, partition(r->subregion[L], a));
 		fprintf(f, ")");
 		return;
@@ -37,14 +37,14 @@ void updatetags(Region *r)
 	return;
 }
 
-Region *split(Region *tosplit, Orientation o, float weight)
+Region *split(Region *tosplit, Orientation o, float fact)
 {
 	if (!tosplit) return NULL;
 	Region *new = malloc(sizeof(Region));
 	if (!new) return NULL;
 	new->type = SPLIT;
-	new->orient = o;
-	new->weight = weight;
+	new->o = o;
+	new->fact = fact;
 	new->parent = tosplit->parent;
 	if (new->parent)
 		new->parent->subregion[IN(tosplit)] = new;
@@ -79,9 +79,9 @@ Region *spawn(Region *currsplit, Window w, Side child, uint8_t tags)
 
 static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *breadcrumbs)
 {	
-	if (r->type == SPLIT && r->orient == d.o && r->subregion[NT(d.s)]->tags & filter)
+	if (r->type == SPLIT && r->o == d.o && r->subregion[NT(d.s)]->tags & filter)
 		return findnext(r->subregion[NT(d.s)], d, filter, breadcrumbs);
-	if (r->type == SPLIT && r->orient == d.o)
+	if (r->type == SPLIT && r->o == d.o)
 		return findnext(r->subregion[d.s], d, filter, breadcrumbs);
 	Side crumb = pop(breadcrumbs);
 	if (r->type == SPLIT && r->subregion[crumb]->tags & filter)
@@ -97,9 +97,9 @@ static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *b
 	while (parent) {
 		int nobacktrack = (d.s != FAKESIDE) ? parent->subregion[d.s] != r : 1; //TODO: this is kinda hacky...
 		int tagmatch = (d.s != FAKESIDE) ? parent->subregion[d.s]->tags & filter : 1;
-		if (parent->orient == d.o && nobacktrack && tagmatch)
+		if (parent->o == d.o && nobacktrack && tagmatch)
 			return parent;
-		else if (parent->orient != d.o)
+		else if (parent->o != d.o)
 			push(breadcrumbs, IN(r));
 		r = parent;
 		parent = parent->parent;
@@ -121,7 +121,7 @@ Region *findneighbor(Region *curr, const Direction d, uint8_t filter)
 void reflect(Region *r)
 {
 	if (r->type == SPLIT) {
-		r->orient = NT(r->orient);
+		r->o = NT(r->o);
 		reflect(r->subregion[L]);
 		reflect(r->subregion[R]);
 	}
@@ -166,22 +166,22 @@ void shiftwidth(Region *r, const Direction d, uint8_t filter)
 		parent = findparent(r->parent->subregion[NT(IN(r))],
 							filter, (Direction){ d.o, FAKESIDE }, NULL);
 	if (parent && d.s == R)
-		parent->weight = MAX(0.1,MIN(parent->weight+0.1, 0.9));
+		parent->fact = MAX(0.1,MIN(parent->fact+0.1, 0.9));
 	else if (parent)
-		parent->weight = MIN(0.9,MAX(parent->weight-0.1, 0.1));
+		parent->fact = MIN(0.9,MAX(parent->fact-0.1, 0.1));
 }
 
 Region *moveclient(Region *r, const Direction d, uint8_t filter)
 { 
 	if (!r) return NULL;
 	if (!r->parent) return r;
-	if (r->parent->orient != d.o) {
+	if (r->parent->o != d.o) {
 		Side s = IN(r); 
 		if (s != d.s) {
 			r->parent->subregion[s] = r->parent->subregion[NT(s)];
 			r->parent->subregion[NT(s)] = r;
 		}
-		r->parent->orient = d.o;
+		r->parent->o = d.o;
 		return r->parent;
 	}
 
@@ -223,8 +223,8 @@ Args partition(Region *r, Args a)
 	uint8_t vis = !!(r->tags & a.geo.filter);
 	r = r->parent;
 	uint8_t fill = !(r->subregion[NT(fr)]->tags & a.geo.filter);
-	Orientation o = r->orient;
-	float fa = r->weight;
+	Orientation o = r->o;
+	float fa = r->fact;
 	return (Args){ .geo = {
 	               .x = (a.geo.x + (fr & NT(fill) & NT(o)) * a.geo.w * (1 - fa)),
 	               .y = (a.geo.y + (fr & NT(fill) & o)     * a.geo.h * (1 - fa)),

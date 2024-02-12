@@ -1,10 +1,13 @@
-#ifndef TREE_H
-#define TREE_H
+#ifndef TILES_H
+#define TILES_H
+
 #include <stdint.h>
 #include <stdio.h>
-#include "types.h"
-#include "stack.h"
+#include <types.h>
+#include <stack.h>
+
 #define IN(x) (((x)->parent->subregion[L] == (x)) ? L : R)
+
 /*
  * A region of the screen, represented by a node in a binary split tree
  */
@@ -13,8 +16,8 @@ typedef struct node {
 		Window win;/*client*/
 		struct /*split*/ {
 			struct node *subregion[2];
-			float weight;
-			Orientation orient;
+			float fact;
+			Orientation o;
 		};
 	};
 	struct node *parent;
@@ -29,10 +32,10 @@ typedef struct node {
  * and a bit array for the tag filter of the current view
  */
 typedef struct {
-	Region *screen;
+	Region *whole;
 	Region *curr;
 	uint8_t filter;
-} Monitor;
+} Tiling;
 
 /* Debug printing
  *
@@ -55,9 +58,9 @@ void freeregion(Region *, Args);
  */
 void updatetags(Region *);
 
-/* Splits the given region in half with the given orientation and weight
+/* Splits the given region in half with the given orientation and fact
  *
- * PARAMS: The region to split, the split's orientation and weight
+ * PARAMS: The region to split, the split's orientation and fact
  *
  * RETURNS: A pointer to the new split
  */

@@ -1,15 +1,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "../lib/types.h"
-#include "../lib/tree.h"
-#include "../lib/config.h"
+#include <types.h>
+#include <tiles.h>
+#include <config.h>
 
-#define VIEW_INFO ((Args){.geo = {.x=0,.y=0,.w=sw,.h=sh,.filter=m->filter}})
+#define VIEW_INFO ((Args){.geo = {.x=0,.y=0,.w=sw,.h=sh,.filter=t->filter}})
 
-static Monitor *m = NULL;
+static Tiling *t = NULL;
 static Display *dpy = NULL;
-static int screen;
+static int whole;
 static Window root;
 static int sw;
 static int sh;
@@ -23,7 +23,7 @@ void draw(Region *n, Args a)
 	}
 }
 
-int otherwmdetected(Display *dpy, XErrorEvent *ee)
+int wmdetect(Display *dpy, XErrorEvent *ee)
 {
 	fprintf(stderr, "another wm is run.");
 	exit(1);
@@ -32,7 +32,9 @@ int otherwmdetected(Display *dpy, XErrorEvent *ee)
 
 int xerror(Display *dpy, XErrorEvent *ee)
 {
-	fprintf(stderr, "some error. %d", ee->error_code);
+	fprintf(stderr, "Error %d:\n\trequest: %d\n\tresouce: %ld", ee->error_code, 
+			                                                    ee->request_code, 
+																ee->resourceid);
 	exit(1);
 	return -1; /*UNREACHABLE*/
 }
@@ -41,25 +43,25 @@ static void create(XEvent *e)
 {
 	static Orientation o = H;
 	static Side s = L;
-	m->curr = spawn(split(m->curr, o^=1, 0.5), e->xmap.window, s, m->filter);
-	if (!m->curr->parent) m->screen = m->curr;
-	else if (!m->curr->parent->parent) m->screen = m->curr->parent;
+	t->curr = spawn(split(t->curr, o^=1, 0.5), e->xmap.window, s, t->filter);
+	if (!t->curr->parent) t->whole = t->curr;
+	else if (!t->curr->parent->parent) t->whole = t->curr->parent;
 	s^=o;
 }
 
 static void drawscreen(XEvent *e)
 {
-	trickle(m->screen, draw, VIEW_INFO, partition);
+	trickle(t->whole, draw, VIEW_INFO, partition);
 }
 
 static void destroy(XEvent *e)
 {
-	Region *r = find(m->screen,e->xunmap.window,~0);
-	fprintf(stderr, "r = %p\n", r);
+	Region *r = find(t->whole,e->xunmap.window,~0);
+	fprintf(stderr, "r = %p\n", (void*)r);
 	Region *r2 = orphan(r);
 	free(r);
-	if (r2 && !r2->parent) m->screen = r2;
-	trickle(m->screen, draw, VIEW_INFO, partition);//TODO: i think this is causing the b ad?
+	if (r2 && !r2->parent) t->whole = r2;
+	trickle(t->whole, draw, VIEW_INFO, partition);//TODO: i think this is causing the b ad?
 }
 
 static void(*handler[LASTEvent])(XEvent *) = {
@@ -79,21 +81,21 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
-	screen = DefaultScreen(dpy);
+	whole = DefaultScreen(dpy);
 #ifdef DEBUG
 	sw = 1920;
 	sh = 1080;
 #else
-	sw = DisplayWidth(dpy, screen);
-	sh = DisplayHeight(dpy, screen);
+	sw = DisplayWidth(dpy, whole);
+	sh = DisplayHeight(dpy, whole);
 #endif
-	root = RootWindow(dpy, screen);
+	root = RootWindow(dpy, whole);
 
-	m = malloc(sizeof(Monitor));
-	m->screen = m->curr = NULL;
-	m->filter = 1;
+	t = malloc(sizeof(Tiling));
+	t->whole = t->curr = NULL;
+	t->filter = 1;
 
-	XSetErrorHandler(otherwmdetected);
+	XSetErrorHandler(wmdetect);
 	XSelectInput(dpy, DefaultRootWindow(dpy), SubstructureRedirectMask
 	                                         |SubstructureNotifyMask
 	                                         |StructureNotifyMask);
@@ -109,9 +111,8 @@ int main(void)
 			handler[e.type](&e);
 		} else fprintf(stderr, "\nevent ignored %d\n", e.type);
 #ifdef DEBUG
-		printtree(m->screen, stderr, VIEW_INFO);
+		printtree(t->whole, stderr, VIEW_INFO);
 #endif
 	}
-
 	return EXIT_SUCCESS;
 }

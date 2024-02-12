@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
-#include "../lib/stack.h"
-#include "../lib/types.h"
+#include <stack.h>
+#include <types.h>
 
 struct stack {
 	Side *buff;
