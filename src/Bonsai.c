@@ -6,6 +6,11 @@
 #include <config.h>
 
 #define VIEW_INFO ((Args){.geo = {.x=0,.y=0,.w=sw,.h=sh,.filter=t->filter}})
+#ifdef DEBUG
+#define LOG(x,...) fprintf(stderr, x, __VA_ARGS__)
+#else
+#define LOG(x,...) do {} while(0)
+#endif
 
 static Tiling *t = NULL;
 static Display *dpy = NULL;
@@ -17,7 +22,7 @@ static int sh;
 void draw(Region *n, Args a)
 {
 	if (a.geo.w && a.geo.h) {
-		fprintf(stderr, "\nattempting to draw: %ld\n", n->win);
+		LOG("\nattempting to draw: %ld\n", n->win);
 		XMoveResizeWindow(dpy, n->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
 		XMapWindow(dpy, n->win);
 	}
@@ -33,8 +38,8 @@ int wmdetect(Display *dpy, XErrorEvent *ee)
 int xerror(Display *dpy, XErrorEvent *ee)
 {
 	fprintf(stderr, "\nError %d:\n\trequest: %d\n\tresouce: %ld", ee->error_code, 
-			                                                    ee->request_code, 
-																ee->resourceid);
+			                                                      ee->request_code, 
+																  ee->resourceid);
 	exit(1);
 	return -1; /*UNREACHABLE*/
 }
@@ -69,7 +74,7 @@ static void(*handler[LASTEvent])(XEvent *) = {
 	[CreateNotify] = create,
 	[MapRequest] = drawscreen,
 	[MapNotify] = drawscreen,
-	/*[UnmapNotify] = destroy,*/
+	/*[UnmapNotify] = drawscreen,*/
 	[DestroyNotify] = destroy,
 };
 
@@ -83,7 +88,7 @@ int main(void)
 
 	whole = DefaultScreen(dpy);
 #ifdef DEBUG
-	XSynchronize(dpy, True);
+	//XSynchronize(dpy, True);
 	sw = 1920;
 	sh = 1080;
 #else
@@ -108,12 +113,10 @@ int main(void)
 		XEvent e;
 		XNextEvent(dpy, &e);
 		if (handler[e.type]) {
-			fprintf(stderr, "\nevent %d\n", e.type);
+			LOG("\nevent %d\n", e.type);
 			printtree(t->whole, stderr, VIEW_INFO);
 			handler[e.type](&e);
-		} else fprintf(stderr, "\nevent ignored %d\n", e.type);
-#ifdef DEBUG
-#endif
+		} else LOG("\nevent ignored %d\n", e.type);
 	}
 	return EXIT_SUCCESS;
 }
