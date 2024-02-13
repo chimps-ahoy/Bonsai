@@ -17,7 +17,7 @@ static int sh;
 void draw(Region *n, Args a)
 {
 	if (a.geo.w && a.geo.h) {
-		fprintf(stderr, "attempting to draw: %ld\n", n->win);
+		fprintf(stderr, "\nattempting to draw: %ld\n", n->win);
 		XMoveResizeWindow(dpy, n->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
 		XMapWindow(dpy, n->win);
 	}
@@ -32,7 +32,7 @@ int wmdetect(Display *dpy, XErrorEvent *ee)
 
 int xerror(Display *dpy, XErrorEvent *ee)
 {
-	fprintf(stderr, "Error %d:\n\trequest: %d\n\tresouce: %ld", ee->error_code, 
+	fprintf(stderr, "\nError %d:\n\trequest: %d\n\tresouce: %ld", ee->error_code, 
 			                                                    ee->request_code, 
 																ee->resourceid);
 	exit(1);
@@ -43,7 +43,7 @@ static void create(XEvent *e)
 {
 	static Orientation o = H;
 	static Side s = L;
-	t->curr = spawn(split(t->curr, o^=1, 0.5), e->xmap.window, s, t->filter);
+	t->curr = spawn(split(t->curr, o^=1, 0.5), e->xcreatewindow.window, s, t->filter);
 	if (!t->curr->parent) t->whole = t->curr;
 	else if (!t->curr->parent->parent) t->whole = t->curr->parent;
 	s^=o;
@@ -56,12 +56,12 @@ static void drawscreen(XEvent *e)
 
 static void destroy(XEvent *e)
 {
-	Region *r = find(t->whole,e->xunmap.window,~0);
-	fprintf(stderr, "r = %p\n", (void*)r);
+	Region *r = find(t->whole,e->xdestroywindow.window,~0);
 	Region *r2 = orphan(r);
 	free(r);
-	if (r2 && !r2->parent) t->whole = r2;
-	trickle(t->whole, draw, VIEW_INFO, partition);//TODO: i think this is causing the b ad?
+	if (!r2 || !r2->parent) t->whole = r2;
+	t->curr = find(t->whole, 0, t->filter);
+	trickle(t->whole, draw, VIEW_INFO, partition);
 }
 
 static void(*handler[LASTEvent])(XEvent *) = {
@@ -69,7 +69,7 @@ static void(*handler[LASTEvent])(XEvent *) = {
 	[CreateNotify] = create,
 	[MapRequest] = drawscreen,
 	[MapNotify] = drawscreen,
-	[UnmapNotify] = drawscreen,
+	/*[UnmapNotify] = destroy,*/
 	[DestroyNotify] = destroy,
 };
 
@@ -83,6 +83,7 @@ int main(void)
 
 	whole = DefaultScreen(dpy);
 #ifdef DEBUG
+	XSynchronize(dpy, True);
 	sw = 1920;
 	sh = 1080;
 #else
@@ -108,10 +109,10 @@ int main(void)
 		XNextEvent(dpy, &e);
 		if (handler[e.type]) {
 			fprintf(stderr, "\nevent %d\n", e.type);
+			printtree(t->whole, stderr, VIEW_INFO);
 			handler[e.type](&e);
 		} else fprintf(stderr, "\nevent ignored %d\n", e.type);
 #ifdef DEBUG
-		printtree(t->whole, stderr, VIEW_INFO);
 #endif
 	}
 	return EXIT_SUCCESS;
