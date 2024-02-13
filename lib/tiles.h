@@ -27,8 +27,8 @@ typedef struct node {
 
 /*
  * A binary split tree of windows.
- * contains a pointer to the root(screen),
- * the current focused node,
+ * contains a pointer to the root, which represents the region encompassing the entire screen,
+ * the current focused region,
  * and a bit array for the tag filter of the current view
  */
 typedef struct {
