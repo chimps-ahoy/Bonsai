@@ -5,7 +5,7 @@
 #include <tiles.h>
 #include <config.h>
 
-#define VIEW_INFO ((Args){.geo = {.x=0,.y=0,.w=sw,.h=sh,.filter=t->filter}})
+#define VIEW_INFO ((Args){.geo = {.x=gappx,.y=barpx+gappx,.w=sw-2*gappx,.h=sh-barpx-2*gappx,.filter=t->filter}})
 #ifdef DEBUG
 #define LOG(x,...) fprintf(stderr, x, __VA_ARGS__)
 #else
@@ -22,8 +22,10 @@ static int sh;
 void draw(Region *n, Args a)
 {
 	if (a.geo.w && a.geo.h) {
-		LOG("\nattempting to draw: %ld\n", n->win);
-		XMoveResizeWindow(dpy, n->win, a.geo.x, a.geo.y, a.geo.w, a.geo.h);
+		LOG("\nattempting to draw: %ld at %d , %d with %d x %d\n", n->win,
+		    a.geo.x+gappx, a.geo.y+gappx, a.geo.w-2*gappx, a.geo.h-2*gappx);
+		XMoveResizeWindow(dpy, n->win, a.geo.x+gappx, a.geo.y+gappx, a.geo.w-2*gappx, a.geo.h-2*gappx);
+		//XSetWindowBorderWidth(dpy, n->win, borderpx);
 		XMapWindow(dpy, n->win);
 	}
 }
@@ -73,8 +75,8 @@ static void(*handler[LASTEvent])(XEvent *) = {
 	/*[ConfigureRequest] = configure,*/
 	[CreateNotify] = create,
 	[MapRequest] = drawscreen,
-	[MapNotify] = drawscreen,
-	/*[UnmapNotify] = drawscreen,*/
+	/*[MapNotify] = drawscreen,
+	[UnmapNotify] = drawscreen,*/
 	[DestroyNotify] = destroy,
 };
 
@@ -91,9 +93,9 @@ int main(void)
 	//XSynchronize(dpy, True);
 	sw = 1920;
 	sh = 1080;
-#else
 	sw = DisplayWidth(dpy, whole);
 	sh = DisplayHeight(dpy, whole);
+#else
 #endif
 	root = RootWindow(dpy, whole);
 
