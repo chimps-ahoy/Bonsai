@@ -50,13 +50,13 @@ void printtree(Region *, FILE *, Args a);
  */
 void freeregion(Region *, Args);
 
-/* Updates the tags of the given split Region to be the union of its
+/* Updates the tags of the given split Region's parent to be the union of its
  * childrens' tags, then travels to its parent and repeats until reaching the
  * root
  *
- * PARAMS: The region whose tags we want to update. Should be a split region.
+ * PARAMS: The region whose tags we want to propegate up. Should be a client region.
  */
-void updatetags(Region *);
+void propegatetags(Region *);
 
 /* Splits the given region in half with the given orientation and fact
  *

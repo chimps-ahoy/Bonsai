@@ -29,12 +29,10 @@ void freeregion(Region *r, Args _)
 	free(r);
 }
 
-void updatetags(Region *r)
+void propegatetags(Region *r)
 {
-	if (!r) return;
-	r->tags = r->subregion[L]->tags | r->subregion[R]->tags;
-	updatetags(r->parent);
-	return;
+	while ((r = r->parent)) 
+		r->tags = r->subregion[L]->tags | r->subregion[R]->tags;
 }
 
 Region *split(Region *tosplit, Orientation o, float fact)
@@ -73,7 +71,9 @@ Region *spawn(Region *currsplit, Window w, Side child, uint8_t tags)
 	currsplit->subregion[child]->type = CLIENT;
 	currsplit->subregion[child]->tags = tags;
 	currsplit->subregion[child]->win = w;
-	updatetags(currsplit);
+	currsplit->tags =
+		currsplit->subregion[L]->tags | currsplit->subregion[R]->tags;
+	propegatetags(currsplit);
 	return currsplit->subregion[child];	
 }
 
@@ -150,7 +150,7 @@ Region *orphan(Region *r)
 	if (parent->parent) {
 		parent->parent->subregion[IN(parent)] = r;
 		r->parent = parent->parent;
-		updatetags(r->parent);
+		propegatetags(r);
 	} else {
 		r->parent = NULL;
 	}
