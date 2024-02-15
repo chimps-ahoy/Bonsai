@@ -5,7 +5,7 @@
 #include <tiles.h>
 #include <config.h>
 
-#define VIEW_INFO ((Args){.geo = {.x=gappx,.y=barpx+gappx,.w=sw-2*gappx,.h=sh-barpx-2*gappx,.filter=t->filter}})
+#define VIEW_INFO ((Args){.geo = {.x=gappx/2,.y=barpx+gappx/2,.w=sw-gappx,.h=sh-barpx-gappx,.filter=t->filter}})
 #ifdef DEBUG
 #define LOG(x,...) fprintf(stderr, x, __VA_ARGS__)
 #else
@@ -23,8 +23,8 @@ void draw(Region *n, Args a)
 {
 	if (a.geo.w && a.geo.h) {
 		LOG("\nattempting to draw: %ld at %d , %d with %d x %d\n", n->win,
-		    a.geo.x+gappx, a.geo.y+gappx, a.geo.w-2*gappx, a.geo.h-2*gappx);
-		XMoveResizeWindow(dpy, n->win, a.geo.x+gappx, a.geo.y+gappx, a.geo.w-2*gappx, a.geo.h-2*gappx);
+		    a.geo.x+gappx/2, a.geo.y+gappx/2, a.geo.w-gappx, a.geo.h-gappx);
+		XMoveResizeWindow(dpy, n->win, a.geo.x+gappx/2, a.geo.y+gappx/2, a.geo.w-gappx, a.geo.h-gappx);
 		//XSetWindowBorderWidth(dpy, n->win, borderpx);
 		XMapWindow(dpy, n->win);
 	}
