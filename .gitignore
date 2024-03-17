@@ -4,3 +4,8 @@ compile_commands.json
 obj/*
 playground/bonsai.c
 playground/__treeez.c
+
+
+# Added by cargo
+
+/rust/target
