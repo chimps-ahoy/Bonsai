@@ -29,6 +29,8 @@ fn main() {
         container: None,
         tags: 0,
     }));
-    let c: Rc<RefCell<Region>> = a.borrow_mut().split(O::V);
-    println!("Hello, {}!", c.borrow());
+    a.borrow_mut().container = Some(Rc::downgrade(&r.clone()));
+    b.borrow_mut().container = Some(Rc::downgrade(&r.clone()));
+    r.borrow_mut().split(O::H);
+    println!("{}", r.borrow());
 }
