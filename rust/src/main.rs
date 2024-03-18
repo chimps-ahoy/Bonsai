@@ -8,7 +8,7 @@ use std::rc::Rc;
 fn main() {
     let a = Rc::new(RefCell::new(Region{
         kind: RegionKind::Client{
-            window: 0
+            window: 2
         },
         container: None,
         tags: 0,
@@ -29,9 +29,6 @@ fn main() {
         container: None,
         tags: 0,
     }));
-    a.borrow_mut().container = Some(Rc::downgrade(&r.clone()));
-    b.borrow_mut().container = Some(Rc::downgrade(&r.clone()));
-    assert_eq!(a.borrow().from(), Some(S::L));
-    println!("{:?}", a.borrow().from());
-    println!("Hello, world!");
+    let c: Rc<RefCell<Region>> = a.borrow_mut().split(O::V);
+    println!("Hello, {}!", c.borrow());
 }
