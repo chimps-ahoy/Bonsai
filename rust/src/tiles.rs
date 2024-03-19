@@ -15,6 +15,14 @@ pub enum Side {
     L = 0b00,
     R = 0b01,
 }
+impl Side {
+    pub fn other(&self) -> Side {
+        match self {
+            Side::L => Side::R,
+            Side::R => Side::L,
+        }
+    }
+}
 
 pub enum Direction {
     North = Orientation::H as isize | Side::L as isize,
@@ -49,7 +57,7 @@ pub struct Tiling {
 }
 
 impl Region {
-    fn subregion(&self) -> &[Option<Rc<RefCell<Region>>>; 2] {
+    pub fn subregion(&self) -> &[Option<Rc<RefCell<Region>>>; 2] {
         if let RegionKind::Split{subregion,..} = &self.kind {
             subregion
         } else {
@@ -57,7 +65,7 @@ impl Region {
         }
     }
 
-    fn adopt(&mut self, child: Rc<RefCell<Region>>, s: Side) -> Option<Rc<RefCell<Region>>> {
+    pub fn adopt(&mut self, child: Rc<RefCell<Region>>, s: Side) -> Option<Rc<RefCell<Region>>> {
         if let RegionKind::Split{subregion,..} = &mut self.kind {
             subregion[s as usize].replace(child)
         } else {
@@ -100,23 +108,24 @@ impl Region {
             .adopt(new, s)
     }
 
-    pub fn split(&mut self, o: Orientation) -> Rc<RefCell<Region>> {
+    pub fn split(to_split: Rc<RefCell<Region>>, o: Orientation) -> Rc<RefCell<Region>> {
         let mut cont: Option<Weak<RefCell<Region>>> = None;
         let new = Rc::new_cyclic(|this| { 
             cont = Some(this.clone());
             RefCell::new(Region {
                 kind: RegionKind::Split{
-                    subregion: [self.clone_from_container(),None],
+                    subregion: [Some(to_split.clone()), None],
                     fact: 0.5,
                     o,
                 },
-                container: self.container.clone(),
-                tags: self.tags,
+                container: to_split.borrow().container.clone(),
+                tags: to_split.borrow().tags,
             })
         }
         );
-        self.replace(new.clone(), self.from().unwrap_or(Side::L));
-        self.container = cont;
+        let s = to_split.borrow().from().unwrap_or(Side::L);
+        to_split.borrow_mut().replace(new.clone(), s);
+        to_split.borrow_mut().container = cont;
         new
     }
 }

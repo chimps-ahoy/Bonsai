@@ -33,6 +33,14 @@ fn main() {
             tags: 0,
         })});
 
-    let c = r.borrow_mut().split(O::H);
-    println!("{}", r.borrow());
+    let c = Region::split(r.clone(), O::H);
+    c.borrow_mut().adopt(
+            Rc::new(RefCell::new(Region {
+                kind: RegionKind::Client {
+                    window: 3
+                },
+                container: None,
+                tags: 0,
+            })), S::R);
+    println!("{}", c.borrow());
 }
