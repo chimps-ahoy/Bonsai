@@ -101,17 +101,22 @@ impl Region {
     }
 
     pub fn split(&mut self, o: Orientation) -> Rc<RefCell<Region>> {
-        let new = Rc::new(RefCell::new(Region {
-            kind: RegionKind::Split{
-                subregion: [self.clone_from_container(),None],
-                fact: 0.5,
-                o,
-            },
-            container: self.container.clone(),
-            tags: self.tags,
-        }));
+        let mut cont: Option<Weak<RefCell<Region>>> = None;
+        let new = Rc::new_cyclic(|this| { 
+            cont = Some(this.clone());
+            RefCell::new(Region {
+                kind: RegionKind::Split{
+                    subregion: [self.clone_from_container(),None],
+                    fact: 0.5,
+                    o,
+                },
+                container: self.container.clone(),
+                tags: self.tags,
+            })
+        }
+        );
         self.replace(new.clone(), self.from().unwrap_or(Side::L));
-        self.container = Some(Rc::downgrade(&new.clone()));
+        self.container = cont;
         new
     }
 }

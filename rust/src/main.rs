@@ -20,17 +20,19 @@ fn main() {
         container: None,
         tags: 0,
     }));
-    let r: Rc<RefCell<Region>> = Rc::new(RefCell::new(Region{
-        kind: RegionKind::Split{
-            subregion: [Some(a.clone()),Some(b.clone())],
-            fact: 0.5,
-            o: O::V,
-        },
-        container: None,
-        tags: 0,
-    }));
-    a.borrow_mut().container = Some(Rc::downgrade(&r.clone()));
-    b.borrow_mut().container = Some(Rc::downgrade(&r.clone()));
-    r.borrow_mut().split(O::H);
+    let r: Rc<RefCell<Region>> = Rc::new_cyclic(|this| {
+        a.borrow_mut().container = Some(this.clone());
+        b.borrow_mut().container = Some(this.clone());
+        RefCell::new(Region{
+            kind: RegionKind::Split{
+                subregion: [Some(a.clone()),Some(b.clone())],
+                fact: 0.5,
+                o: O::V,
+            },
+            container: None,
+            tags: 0,
+        })});
+
+    let c = r.borrow_mut().split(O::H);
     println!("{}", r.borrow());
 }
