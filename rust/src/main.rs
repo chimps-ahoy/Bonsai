@@ -32,8 +32,9 @@ fn main() {
             container: None,
             tags: 0,
         })});
+    println!("{}", r.borrow());
 
-    let c = Region::split(r.clone(), O::H);
+    let c = Region::new_split(r.clone(), O::H);
     c.borrow_mut().adopt(
             Rc::new(RefCell::new(Region {
                 kind: RegionKind::Client {
@@ -43,4 +44,6 @@ fn main() {
                 tags: 0,
             })), S::R);
     println!("{}", c.borrow());
+    println!("{}", r.borrow());
+    assert_eq!(r.borrow().from(), a.borrow().from());
 }

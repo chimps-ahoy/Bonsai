@@ -15,9 +15,12 @@ pub enum Side {
     L = 0b00,
     R = 0b01,
 }
+
 impl Side {
+    #[inline]
     pub fn other(&self) -> Side {
-        match self {
+        match self {//unsafe approach with mem::transmute is same
+                    //but replaces sete with xor instruction
             Side::L => Side::R,
             Side::R => Side::L,
         }
@@ -25,10 +28,10 @@ impl Side {
 }
 
 pub enum Direction {
-    North = Orientation::H as isize | Side::L as isize,
-    South = Orientation::H as isize | Side::R as isize,
-    East = Orientation::V as isize | Side::L as isize,
-    West = Orientation::V as isize | Side::R as isize,
+    N = Orientation::H as isize | Side::L as isize, //0b10
+    S = Orientation::H as isize | Side::R as isize, //0b11
+    E = Orientation::V as isize | Side::L as isize, //0b00
+    W = Orientation::V as isize | Side::R as isize, //0b01
 }
 
 #[derive(Debug)]
@@ -44,7 +47,7 @@ pub enum RegionKind {//SHOULDNT BE PUB
 }
 
 #[derive(Debug)]
-pub struct Region {//SHOULDNT BE PUB...?
+pub struct Region {//SHOULDNT BE PUB
     pub kind: RegionKind,
     pub container: Option<Weak<RefCell<Region>>>,
     pub tags: u8,
@@ -57,7 +60,7 @@ pub struct Tiling {
 }
 
 impl Region {
-    pub fn subregion(&self) -> &[Option<Rc<RefCell<Region>>>; 2] {
+    fn subregion(&self) -> &[Option<Rc<RefCell<Region>>>; 2] {
         if let RegionKind::Split{subregion,..} = &self.kind {
             subregion
         } else {
@@ -65,15 +68,6 @@ impl Region {
         }
     }
 
-    pub fn adopt(&mut self, child: Rc<RefCell<Region>>, s: Side) -> Option<Rc<RefCell<Region>>> {
-        if let RegionKind::Split{subregion,..} = &mut self.kind {
-            subregion[s as usize].replace(child)
-        } else {
-            panic!("only splits can adopt nodes")
-        }
-    }
-
-    #[inline]
     pub fn from(&self) -> Option<Side> {
         self.container
             .as_ref()? //the root node is the ONLY node st `from() == None`
@@ -87,31 +81,28 @@ impl Region {
             .find_map(|(sub,side)| eq(sub.as_ptr(),self).then_some(side))
     }
 
-    #[inline]
-    fn clone_from_container(&self) -> Option<Rc<RefCell<Region>>> {
-        Some(Rc::clone(&self.container
-                       .as_ref()?
-                       .upgrade()
-                       .unwrap()
-                       .borrow()
-                       .subregion()[self.from().unwrap() as usize]
-                       .as_ref()
-                       .unwrap()))
+    pub fn adopt(&mut self, child: Rc<RefCell<Region>>, s: Side) -> Option<Rc<RefCell<Region>>> {
+        if let RegionKind::Split{subregion,..} = &mut self.kind {
+            subregion[s as usize].replace(child)
+        } else {
+            panic!("only splits can adopt nodes")
+        }
     }
 
-    fn replace(&self, new: Rc<RefCell<Region>>, s: Side) -> Option<Rc<RefCell<Region>>> {
-        self.container
+    fn swap_in(old: &Rc<RefCell<Region>>, new: Rc<RefCell<Region>>) -> Option<Rc<RefCell<Region>>> {
+        old.borrow()
+            .container
             .as_ref()?
             .upgrade()
             .unwrap()
             .borrow_mut()
-            .adopt(new, s)
+            .adopt(new, old.borrow().from().unwrap_or(Side::L))
     }
 
-    pub fn split(to_split: Rc<RefCell<Region>>, o: Orientation) -> Rc<RefCell<Region>> {
-        let mut cont: Option<Weak<RefCell<Region>>> = None;
-        let new = Rc::new_cyclic(|this| { 
-            cont = Some(this.clone());
+    pub fn new_split(to_split: Rc<RefCell<Region>>, o: Orientation) -> Rc<RefCell<Region>> {
+        let mut new_s: Option<Weak<RefCell<Region>>> = None;
+        let split = Rc::new_cyclic(|split| { 
+            new_s = Some(split.clone());
             RefCell::new(Region {
                 kind: RegionKind::Split{
                     subregion: [Some(to_split.clone()), None],
@@ -123,10 +114,9 @@ impl Region {
             })
         }
         );
-        let s = to_split.borrow().from().unwrap_or(Side::L);
-        to_split.borrow_mut().replace(new.clone(), s);
-        to_split.borrow_mut().container = cont;
-        new
+        Region::swap_in(&to_split, split.clone());
+        to_split.borrow_mut().container = new_s;
+        split
     }
 }
 
