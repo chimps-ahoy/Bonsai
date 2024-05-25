@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <types.h>
-#include <tiles.h>
-#include <stack.h>
-#include <util.h>
+#include "types.h"
+#include "tiles.h"
+#include "stack.h"
+#include "util.h"
 
 void printtree(Region *r, FILE *f, Args a)
 {

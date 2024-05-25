@@ -13,10 +13,7 @@ OBJECTS := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SOURCES))
 PREFIX = /usr/local
 MANPREFIX = $(PREFIX)/share/man
 
-X11INC = /usr/include/X11
-X11LIB = /usr/lib/X11
-
-INCS = -I$(X11INC) -I$(HDRDIR)
-LIBS = -L$(X11LIB) -lX11
+INCS = -I$(HDRDIR)
+LIBS = -lswc
 
 CFLAGS = -std=c2x -pedantic -Wall $(INCS) $(LIBS) -DVERSION=\"$(VERSION)\"

@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <types.h>
-#include <stack.h>
+
+#include "types.h"
+#include "stack.h"
 
 #define IN(x) (((x)->parent->subregion[L] == (x)) ? L : R)
 
