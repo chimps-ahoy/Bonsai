@@ -1,3 +1,3 @@
-This is a minimalist, manual window tiller for X server.
-Written in C, heavily inspired by dwm.
+This is a minimalist, manual window tiller for Wayland.
+Written in C using ![swc](https://github.com/michaelforney/swc "swc github"), heavily inspired by dwm.
 ![a really cool logo](badasslogo.png "BonsaiWM")
