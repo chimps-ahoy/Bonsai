@@ -14,6 +14,6 @@ PREFIX = /usr/local
 MANPREFIX = $(PREFIX)/share/man
 
 INCS = -I$(HDRDIR)
-LIBS = -lswc
+LIBS = -lswc -lwayland-server
 
 CFLAGS = -std=c2x -pedantic -Wall $(INCS) $(LIBS) -DVERSION=\"$(VERSION)\"

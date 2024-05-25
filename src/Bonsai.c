@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <wayland-server.h>
+#include <swc.h>
 
 #include "types.h"
 #include "tiles.h"
@@ -23,5 +25,7 @@ void draw(Region *n, Args a)
 
 int main(void)
 {
-	return EXIT_FAILURE;
+	(void)wl_display_create();
+	int b = swc_initialize(NULL, NULL, NULL);
+	return b;
 }
