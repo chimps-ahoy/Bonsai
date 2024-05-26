@@ -10,13 +10,9 @@ typedef struct swc_window *Window;
 #include "types.h"
 #include "tiles.h"
 #include "config.h"
+#include "util.h"
 
 #define VIEW_INFO ((Args){.geo = {.x=gappx/2,.y=barpx+gappx/2,.w=sw-gappx,.h=sh-barpx-gappx,.filter=t->filter}})
-#ifdef DEBUG
-#define LOG(x,...) fprintf(stderr, x __VA_OPT__(,) __VA_ARGS__)
-#else
-#define LOG(x,...) do {} while(0)
-#endif
 
 static struct wl_display *dpy = NULL;
 
