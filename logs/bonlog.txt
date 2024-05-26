@@ -1,0 +1,26 @@
+running on /dev/tty2
+dpy = 0x59b71fed0940
+sock = wayland-0
+[swc:libswc/drm.c:152] DEBUG: /dev/dri/card1 is the primary GPU
+# find_driver: Trying DRM driver `intel'
+# find_driver: Trying DRM driver `nouveau'
+# find_driver: Trying DRM driver `dumb'
+[swc:libswc/compositor.c:686] DEBUG: Performing update
+[swc:libswc/compositor.c:220] DEBUG: Rendering to target { x: 0, y: 0, w: 2560, h: 1440 }
+(WW) Option "-listen" for file descriptors is deprecated
+Please use "-listenfd" instead.
+(WW) Option "-listen" for file descriptors is deprecated
+Please use "-listenfd" instead.
+Xwayland glamor: GBM Wayland interfaces not available
+Failed to initialize glamor, falling back to sw
+The XKEYBOARD keymap compiler (xkbcomp) reports:
+> Warning:          Unsupported maximum keycode 708, clipping.
+>                   X11 cannot support keycodes above 255.
+> Warning:          Could not resolve keysym XF86KbdInputAssistPrevgrou
+> Warning:          Could not resolve keysym XF86KbdInputAssistNextgrou
+Errors from xkbcomp are not fatal to the X server
+quitting from keyboard input.
+time = 48048304,
+value = 113,
+state = 1,
+(EE) failed to read Wayland events: Broken pipe

@@ -5,7 +5,6 @@
 #include <stdio.h>
 
 #include "types.h"
-#include "stack.h"
 
 #define IN(x) (((x)->parent->subregion[L] == (x)) ? L : R)
 

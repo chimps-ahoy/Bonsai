@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 
+#ifndef WINTYPE
 typedef long Window;
+#endif
 
 typedef enum : uint8_t { V = 0, H = 1, } Orientation; /* TODO: bit arrays? */
 typedef enum : uint8_t { L = 0, R = 1, } Side;
