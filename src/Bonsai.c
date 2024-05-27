@@ -53,7 +53,7 @@ void term(void *data, uint32_t time, uint32_t value, uint32_t state)
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
 	if (!fork()) {
-		char *term[] = {"weston-terminal", NULL};
+		char *term[] = {"weston-smoke", NULL};
 		LOG("executing %s , %p\n", *term, (void*)term);
 		execvp(*term, term);
 		exit(EXIT_FAILURE);
