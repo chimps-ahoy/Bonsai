@@ -4,7 +4,7 @@ include config.mk
 #current directory!
 
 run : $(EXEC)
-	$(BINDIR)/$(EXEC)
+	$(BINDIR)/$(EXEC) 2>$(LOGDIR)/"$(shell date +"%F@%H:%M:%S").log"
 
 debug : CFLAGS += -g -DDEBUG
 debug : $(EXEC)
@@ -22,4 +22,4 @@ $(OBJDIR)%.o : $(SRCDIR)%.c
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 clean :
-	rm -f $(BINDIR)/* $(OBJDIR)/*
+	rm -f $(BINDIR)/* $(OBJDIR)/* $(LOGDIR)/*

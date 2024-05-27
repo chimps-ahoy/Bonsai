@@ -4,6 +4,8 @@
 #include <wayland-server.h>
 #include <swc.h>
 
+#include <unistd.h>
+
 #define WINTYPE
 typedef struct swc_window *Window;
 
@@ -46,6 +48,18 @@ void quit(void *data, uint32_t time, uint32_t value, uint32_t state)
 	wl_display_destroy(dpy);
 }
 
+void term(void *data, uint32_t time, uint32_t value, uint32_t state)
+{
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
+		return;
+	if (!fork()) {
+		char *term[] = {"weston-terminal", NULL};
+		LOG("executing %s , %p\n", *term, (void*)term);
+		execvp(*term, term);
+		exit(EXIT_FAILURE);
+	}
+}
+
 static struct swc_manager *man = &(struct swc_manager){
 	.new_screen = newscreen,
 	.new_window = newwin,
@@ -74,6 +88,8 @@ int main(void)
 
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_q,
 			        quit, NULL);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_Return,
+			        term, NULL);
 
 	wl_display_run(dpy);
 	wl_display_destroy(dpy);

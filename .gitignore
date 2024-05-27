@@ -2,3 +2,4 @@ bin/*
 .cache/*
 compile_commands.json
 obj/*
+logs/*
