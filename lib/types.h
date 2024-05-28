@@ -8,7 +8,7 @@ typedef long Window;
 typedef struct screen {} Screen;
 #endif
 
-typedef enum : uint8_t { V = 0b00, H = 0b10, } Orientation; 
+typedef enum : uint8_t { V = 0b00, H = 0b01, } Orientation; 
 typedef enum : uint8_t { L = 0b00, R = 0b01, } Side;
 #define FAKESIDE 69 //if we switch to bit arrays for directions, this could
 					//be like 2 or something so we can just &2 to check

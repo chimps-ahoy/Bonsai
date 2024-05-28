@@ -45,13 +45,7 @@ typedef struct {
 void printtree(Region *, FILE *, Args a);
 #endif
 
-/* A wrapper for free() to allow it to be called with trickle() to free
- * an entire tree
- * 
- * TODO: this should probably be defined within the main file so we can
- * also free any Windows attached
- */
-void freeregion(Region *, Args, void(*)(Window));
+void freeregion(Region *, Args);
 
 /* Updates the tags of the given split Region's parent to be the union of its
  * childrens' tags, then travels to its parent and repeats until reaching the
@@ -157,4 +151,8 @@ void trickle(Region *n, void(*F)(Region *, Args), Args a, Args(*T)(Region *, Arg
  * RETURNS: The dimensions of the given node as an Args(geo)
  */
 Args partition(Region *, Args);
+
+/* An identity function wrapper for use with trickle
+ */
+Args id(Region *, Args);
 #endif

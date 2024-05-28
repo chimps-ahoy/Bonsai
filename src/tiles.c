@@ -26,9 +26,8 @@ void printtree(Region *r, FILE *f, Args a)
 }
 #endif
 
-void freeregion(Region *r, Args _, void(*freewin)(Window))
+void freeregion(Region *r, Args _)
 {
-	freewin(r->win);
 	free(r);
 }
 
@@ -238,5 +237,10 @@ Args partition(Region *r, Args a)
 	               .filter = a.geo.filter
 	               }
 	             };
+}
+
+Args id(Region *r, Args a)
+{
+	return a;
 }
 #undef NT

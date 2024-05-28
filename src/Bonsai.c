@@ -21,6 +21,8 @@ static int scount = 0;
 static int ssize = 0;
 static int scurr = 0;
 
+static Direction diropen = defopen;
+
 void draw(Region *n, Args a)
 {
 	LOG("tags: %B, filter: %B\n", n->tags, a.geo.filter);
@@ -44,7 +46,7 @@ void draw(Region *n, Args a)
 	}
 }
 
-void arrange(Tiling *t)
+void drawscreen(Tiling *t)
 {
 	Args geo = (Args){
 		.geo = {
@@ -58,7 +60,34 @@ void arrange(Tiling *t)
 	trickle(screens[scurr]->whole, draw, geo, partition);
 }
 
-struct swc_screen_handler *screenhandle = &(struct swc_screen_handler){ 0 };
+void delscreen(void *data)
+{
+	int i = 0;
+	do {
+		if (screens[i]->screen == (Screen)data) {
+			trickle(screens[i]->whole, freeregion, (Args){0}, id);
+			screens[i] = NULL;
+			break;
+		}
+	} while (++i < scount);
+	for (; i < scount; i++)
+		screens[i-1] = screens[i];
+}
+
+void redrawscreen(void *data)
+{
+	for (int i = 0; i < scount; i++) {
+		if (screens[i]->screen == (Screen)data) {
+			drawscreen(screens[i]);
+			return;
+		}
+	}
+}
+
+struct swc_screen_handler *screenhandle = &(struct swc_screen_handler){
+	.destroy = delscreen,
+	.usable_geometry_changed = redrawscreen,
+};
 
 void newscreen(struct swc_screen *s)
 {
@@ -77,6 +106,7 @@ void newscreen(struct swc_screen *s)
 			exit(EXIT_FAILURE);
 		}
 	}
+
 	screens[scount++] = new;
 	new->screen = s;
 	swc_screen_set_handler(s, screenhandle, new);
@@ -96,17 +126,29 @@ void newwin(struct swc_window *s)
 	new->parent = NULL;
 	new->tags = screens[scurr]->filter;
 
-	screens[scurr]->curr = spawn(split(screens[scurr]->curr, spawnloc.o, 0.5),
-			                     s, spawnloc.s ,screens[scurr]->filter);
+	screens[scurr]->curr = spawn(split(screens[scurr]->curr, diropen.o, 0.5),
+			                     s, diropen.s ,screens[scurr]->filter);
 
 	if (!screens[scurr]->curr->parent)
 		screens[scurr]->whole = screens[scurr]->curr;
 	else if (!screens[scurr]->curr->parent->parent)
-		screens[scurr]->whole = screens[scurr]->curr->parent->parent;
+		screens[scurr]->whole = screens[scurr]->curr->parent;
 
 	swc_window_set_handler(s, winhandler, new);
 	swc_window_set_tiled(s);
-	arrange(screens[scurr]);
+#ifdef DEBUG
+	printtree(screens[scurr]->whole, stderr, (Args) {
+			.geo = {
+				.x = gappx/2,
+				.y = barpx+gappx/2,
+				.w = screens[scurr]->screen->usable_geometry.width-gappx,
+				.h = screens[scurr]->screen->usable_geometry.height-gappx-barpx,
+				.filter = screens[scurr]->filter,
+			}
+		});
+	fprintf(stderr, "\n");
+#endif
+	drawscreen(screens[scurr]);
 }
 
 void quit(void *data, uint32_t time, uint32_t value, uint32_t state)
@@ -123,16 +165,34 @@ void quit(void *data, uint32_t time, uint32_t value, uint32_t state)
 	wl_display_terminate(dpy);
 }
 
-void term(void *data, uint32_t time, uint32_t value, uint32_t state)
+void openwin(void *data, uint32_t state)
 {
-	char *term[] = {"st", NULL};
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
-	LOG("spawning %s\n", *term);
+	LOG("spawning %s\n", *(char **)data);
 	if (fork() == 0) {
-		execvp(*term, term);
+		execvp(*(char **)data, data);
 		exit(EXIT_FAILURE);
 	}
+}
+
+void openwinat(void *data, uint32_t time, uint32_t value, uint32_t state)
+{
+	switch (value) {
+		case XKB_KEY_h: 
+			diropen = WEST;
+			break;
+		case XKB_KEY_j: 
+			diropen = SOUTH;
+			break;
+		case XKB_KEY_k: 
+			diropen = NORTH;
+			break;
+		case XKB_KEY_l: 
+			diropen = EAST;
+			break;
+	}
+	openwin(data, state);
 }
 
 static struct swc_manager *man = &(struct swc_manager){
@@ -162,10 +222,27 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
+	static const char *term[] = {"st", NULL};
+	static const char *b[] = {"discord", NULL};
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_CTRL, XKB_KEY_c,
 			        quit, NULL);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_Return,
-			        term, NULL);
+
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_h,
+			        openwinat, term);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_j,
+			        openwinat, term);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_k,
+			        openwinat, term);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_l,
+			        openwinat, term);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_h,
+			        openwinat, b);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_j,
+			        openwinat, b);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_k,
+			        openwinat, b);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_l,
+			        openwinat, b);
 
 	wl_display_run(dpy);
 
