@@ -12,6 +12,9 @@
  * A region of the screen, represented by a node in a binary split tree
  */
 typedef struct node {
+	Type type;
+	struct node *parent;
+	uint8_t tags;
 	union {
 		Window win;/*client*/
 		struct /*split*/ {
@@ -20,9 +23,6 @@ typedef struct node {
 			Orientation o;
 		};
 	};
-	struct node *parent;
-	Type type;
-	uint8_t tags;
 } Region;
 
 /*
@@ -32,15 +32,18 @@ typedef struct node {
  * and a bit array for the tag filter of the current view
  */
 typedef struct {
+	Screen screen;
 	Region *whole;
 	Region *curr;
 	uint8_t filter;
 } Tiling;
 
+#ifdef DEBUG
 /* Debug printing
  *
  */
 void printtree(Region *, FILE *, Args a);
+#endif
 
 /* A wrapper for free() to allow it to be called with trickle() to free
  * an entire tree
@@ -48,7 +51,7 @@ void printtree(Region *, FILE *, Args a);
  * TODO: this should probably be defined within the main file so we can
  * also free any Windows attached
  */
-void freeregion(Region *, Args);
+void freeregion(Region *, Args, void(*)(Window));
 
 /* Updates the tags of the given split Region's parent to be the union of its
  * childrens' tags, then travels to its parent and repeats until reaching the

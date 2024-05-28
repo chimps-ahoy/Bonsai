@@ -6,6 +6,7 @@
 #include "stack.h"
 #include "util.h"
 
+#ifdef DEBUG
 void printtree(Region *r, FILE *f, Args a)
 {
 	if (!r) {
@@ -16,16 +17,18 @@ void printtree(Region *r, FILE *f, Args a)
 		fprintf(f, "(");
 		printtree(r->subregion[L], f, partition(r->subregion[L], a));
 		fprintf(f, (r->o == H) ? " - " : " | ");
-		printtree(r->subregion[H], f, partition(r->subregion[L], a));
+		printtree(r->subregion[R], f, partition(r->subregion[L], a));
 		fprintf(f, ")");
 		return;
 	}
 	fprintf(f, "%ld={(%d,%d) %dx%d}", (long)(r->win), a.geo.x, a.geo.y,
 			                                            a.geo.w, a.geo.h);
 }
+#endif
 
-void freeregion(Region *r, Args _)
+void freeregion(Region *r, Args _, void(*freewin)(Window))
 {
+	freewin(r->win);
 	free(r);
 }
 
