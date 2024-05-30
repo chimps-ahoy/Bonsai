@@ -6,9 +6,9 @@
 #include "stack.h"
 #include "util.h"
 
-#ifdef DEBUG
 void printtree(Region *r, FILE *f, Args a)
 {
+#ifdef DEBUG
 	if (!r) {
 		fprintf(f, "NULL");
 		return;
@@ -23,8 +23,8 @@ void printtree(Region *r, FILE *f, Args a)
 	}
 	fprintf(f, "%ld={(%d,%d) %dx%d}", (long)(r->win), a.geo.x, a.geo.y,
 			                                            a.geo.w, a.geo.h);
-}
 #endif
+}
 
 void freeregion(Region *r, Args _)
 {
@@ -129,7 +129,23 @@ void reflect(Region *r)
 	}
 }
 
-Region *find(Region *r,  Window w, uint8_t filter)
+/*Region *find(Region *r, Window w, uint8_t filter)*/
+/*{*/
+/*	if (!r) return NULL;*/
+/*	if (r->type == CLIENT && r->win == w && r->tags & filter) return r;*/
+/*	if (r->type == CLIENT) {*/
+/*		LOG("w = %p, r->win = %p\n", w, r->win);*/
+/*		return NULL;*/
+/*	}*/
+/*	if (r->type == SPLIT && r->tags & filter) {*/
+/*		Region *tmp = find(r->subregion[L], w, filter);*/
+/*		if (tmp) return tmp;*/
+/*		return find(r->subregion[R], w, filter);*/
+/*	}*/
+/*	return NULL;*/
+/*}*/
+
+Region *find(Region *r, Window w, uint8_t filter)
 {
 	if (!r) return NULL;
 	if (r->type == SPLIT && r->tags & filter) {

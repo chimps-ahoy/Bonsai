@@ -38,12 +38,10 @@ typedef struct {
 	uint8_t filter;
 } Tiling;
 
-#ifdef DEBUG
 /* Debug printing
  *
  */
 void printtree(Region *, FILE *, Args a);
-#endif
 
 void freeregion(Region *, Args);
 

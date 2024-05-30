@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <xkbcommon/xkbcommon.h>
-#include <wayland-server.h>
 #include <swc.h>
 #include <unistd.h>
+#include <wayland-server.h>
+#include <xkbcommon/xkbcommon.h>
 
 #define WINTYPES
 typedef struct swc_window * Window;
@@ -22,6 +22,19 @@ static int ssize = 0;
 static int scurr = 0;
 
 static Direction diropen = defopen;
+#define BIND(key,dir) [key] = dir,
+static const Direction dirmap[] = {
+	FORALL_DIR(BIND)
+};
+#undef BIND
+
+void setborder(Region *r, Args _)
+{
+	if (screens[scurr]->curr == r) 
+		swc_window_set_border(r->win, highlight, borderpx);
+	else
+		swc_window_set_border(r->win, border, borderpx);
+}
 
 void draw(Region *n, Args a)
 {
@@ -41,6 +54,7 @@ void draw(Region *n, Args a)
 			geo.y+gappx/2,
 			geo.width-gappx,
 			geo.height-gappx);
+		setborder(n, (Args){0});
 		swc_window_show(n->win);
 		swc_window_set_geometry(n->win, &geo);
 	}
@@ -57,7 +71,7 @@ void drawscreen(Tiling *t)
 			.filter = t->filter,
 		}
 	};
-	trickle(screens[scurr]->whole, draw, geo, partition);
+	trickle(t->whole, draw, geo, partition);
 }
 
 void delscreen(void *data)
@@ -112,7 +126,83 @@ void newscreen(struct swc_screen *s)
 	swc_screen_set_handler(s, screenhandle, new);
 }
 
-struct swc_window_handler *winhandler = &(struct swc_window_handler){0};
+void quit(void *data, uint32_t time, uint32_t value, uint32_t state)
+{
+	if (!data) {
+		LOG("quitting from keyboard input.\n"
+				"time = %d,\n"
+				"value = %d,\n"
+				"state = %d,\n",
+				time,
+				value,
+				state);
+	} else {
+		LOG("exiting autonomously.\n"
+				"time = %d,\n"
+				"value = %d,\n"
+				"state = %d,\n",
+				time,
+				value,
+				state);
+	}
+	wl_display_terminate(dpy);
+	exit((long)data);
+}
+
+void delwin(void *win)
+{
+	for (int i = 0; i < scount; i++) {
+		Region *todestroy = find(screens[i]->whole, (Window)win, ~0);
+		if (todestroy) {
+			Region *r = orphan(todestroy);
+			if (!r)
+				quit((void *)EXIT_FAILURE, 0, 0, 0);
+			if (!r->parent)
+				screens[i]->whole = r;
+			screens[i]->curr = r;
+			free(todestroy);
+			drawscreen(screens[i]);
+			return;
+		}
+	}
+}
+
+void delcurr(void *win, uint32_t time, uint32_t value, uint32_t state)
+{
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
+		return;
+	delwin(win);
+}
+
+void focus(void *win)
+{
+	if (win) {
+		Region *focused = find(screens[scurr]->whole, win, screens[scurr]->filter);
+		if (focused) {
+			screens[scurr]->curr = focused;
+			swc_window_focus(win);
+		}
+		trickle(screens[scurr]->whole, setborder, (Args){0}, id);
+	}
+}
+
+void movefocus(void *_, uint32_t time, uint32_t value, uint32_t state)
+{
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
+		return;
+	Region *next;
+	if ((next = findneighbor(screens[scurr]->curr,
+					         dirmap[value], screens[scurr]->filter))) {
+		screens[scurr]->curr = next;
+	}
+	focus(screens[scurr]->curr->win);
+}
+
+
+struct swc_window_handler *winhandler = &(struct swc_window_handler){
+	.destroy = delwin,
+	.entered = focus
+};
 
 void newwin(struct swc_window *s)
 {
@@ -134,9 +224,9 @@ void newwin(struct swc_window *s)
 	else if (!screens[scurr]->curr->parent->parent)
 		screens[scurr]->whole = screens[scurr]->curr->parent;
 
-	swc_window_set_handler(s, winhandler, new);
+	swc_window_set_handler(s, winhandler, s);
 	swc_window_set_tiled(s);
-#ifdef DEBUG
+	swc_window_focus(s);
 	printtree(screens[scurr]->whole, stderr, (Args) {
 			.geo = {
 				.x = gappx/2,
@@ -146,27 +236,13 @@ void newwin(struct swc_window *s)
 				.filter = screens[scurr]->filter,
 			}
 		});
-	fprintf(stderr, "\n");
-#endif
+	LOG("\n");
 	drawscreen(screens[scurr]);
 }
 
-void quit(void *data, uint32_t time, uint32_t value, uint32_t state)
+void openwin(void *data, uint32_t time, uint32_t value, uint32_t state)
 {
-	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
-		return;
-	LOG("quitting from keyboard input.\n"
-		"time = %d,\n"
-		"value = %d,\n"
-		"state = %d,\n",
-		time,
-		value,
-		state);
-	wl_display_terminate(dpy);
-}
-
-void openwin(void *data, uint32_t state)
-{
+	diropen = dirmap[value];
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
 	LOG("spawning %s\n", *(char **)data);
@@ -175,31 +251,10 @@ void openwin(void *data, uint32_t state)
 		exit(EXIT_FAILURE);
 	}
 }
-
-void openwinat(void *data, uint32_t time, uint32_t value, uint32_t state)
-{
-	switch (value) {
-		case XKB_KEY_h: 
-			diropen = WEST;
-			break;
-		case XKB_KEY_j: 
-			diropen = SOUTH;
-			break;
-		case XKB_KEY_k: 
-			diropen = NORTH;
-			break;
-		case XKB_KEY_l: 
-			diropen = EAST;
-			break;
-	}
-	openwin(data, state);
-}
-
 static struct swc_manager *man = &(struct swc_manager){
 	.new_screen = newscreen,
 	.new_window = newwin,
 };
-
 
 int main(void)
 {
@@ -215,34 +270,30 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 	LOG("sock = %s\n", sock);
-	/*setenv("WAYLAND_DISPLAY", sock, 1);*/
+	setenv("WAYLAND_DISPLAY", sock, 1);
 
 	if (!swc_initialize(dpy, wl_display_get_event_loop(dpy), man)) {
 		LOG("failed to initialize swc\n");
 		return EXIT_FAILURE;
 	}
 
-	static const char *term[] = {"st", NULL};
-	static const char *b[] = {"discord", NULL};
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_CTRL, XKB_KEY_c,
-			        quit, NULL);
+	static const char *term[] = {"weston-terminal", NULL};
+	static const char *disc[] = {"discord", NULL};
 
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_h,
-			        openwinat, term);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_j,
-			        openwinat, term);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_k,
-			        openwinat, term);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_l,
-			        openwinat, term);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_h,
-			        openwinat, b);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_j,
-			        openwinat, b);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_k,
-			        openwinat, b);
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_l,
-			        openwinat, b);
+    #define BINDTERM(key,_) { \
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, key, \
+			        openwin, term); \
+    }
+    #define MOVEFOCUS(key,_) { \
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, key, \
+			        movefocus, NULL); \
+	}
+	FORALL_DIR(BINDTERM);
+	FORALL_DIR(MOVEFOCUS);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_q,
+			        delcurr, NULL);
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_q,
+			        quit, NULL);
 
 	wl_display_run(dpy);
 
