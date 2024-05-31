@@ -37,7 +37,8 @@ void propegatetags(Region *r)
 		r->tags = r->subregion[L]->tags | r->subregion[R]->tags;
 }
 
-Region *split(Region *tosplit, Orientation o, float fact)
+
+static Region *reparent(Region *tosplit, Orientation o, float fact)
 {
 	if (!tosplit) return NULL;
 	Region *new = malloc(sizeof(Region));
@@ -55,7 +56,7 @@ Region *split(Region *tosplit, Orientation o, float fact)
 	return new;
 }
 
-Region *spawn(Region *currsplit, Window w, Side child, uint8_t tags)
+static Region *append(Region *currsplit, Window w, Side child, uint8_t tags)
 {
 	if (!currsplit) {
 		Region *new = malloc(sizeof(Region));
@@ -77,6 +78,11 @@ Region *spawn(Region *currsplit, Window w, Side child, uint8_t tags)
 		currsplit->subregion[L]->tags | currsplit->subregion[R]->tags;
 	propegatetags(currsplit);
 	return currsplit->subregion[child];	
+}
+
+Region *split(Region *tosplit, Direction to, float fact, Window w, uint8_t tags)
+{
+	return append(reparent(tosplit, to.o, fact), w, to.s, tags);
 }
 
 static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *breadcrumbs)
@@ -129,29 +135,13 @@ void reflect(Region *r)
 	}
 }
 
-/*Region *find(Region *r, Window w, uint8_t filter)*/
-/*{*/
-/*	if (!r) return NULL;*/
-/*	if (r->type == CLIENT && r->win == w && r->tags & filter) return r;*/
-/*	if (r->type == CLIENT) {*/
-/*		LOG("w = %p, r->win = %p\n", w, r->win);*/
-/*		return NULL;*/
-/*	}*/
-/*	if (r->type == SPLIT && r->tags & filter) {*/
-/*		Region *tmp = find(r->subregion[L], w, filter);*/
-/*		if (tmp) return tmp;*/
-/*		return find(r->subregion[R], w, filter);*/
-/*	}*/
-/*	return NULL;*/
-/*}*/
-
 Region *find(Region *r, Window w, uint8_t filter)
 {
 	if (!r) return NULL;
 	if (r->type == SPLIT && r->tags & filter) {
 		Region *tmp;
-		if ((tmp = find(r->subregion[L], w, filter))) return tmp;
-		if ((tmp = find(r->subregion[R], w, filter))) return tmp;
+		if     ((tmp = find(r->subregion[L], w, filter))) return tmp;
+		return ((tmp = find(r->subregion[R], w, filter)));
 	}
 	if (r->type == CLIENT && (!w || r->win == w) && r->tags & filter) return r;//hack to find first win
 	return NULL;
@@ -215,7 +205,7 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 	if (neighbor != r) s = NT(d.s);
 	else for(; neighbor->parent; neighbor = neighbor->parent); 
 
-	neighbor = split(neighbor, d.o, 0.5);
+	neighbor = reparent(neighbor, d.o, 0.5);
 	if (neighbor->subregion[s])
 		neighbor->subregion[NT(s)] = neighbor->subregion[s];
 	neighbor->subregion[s] = r;

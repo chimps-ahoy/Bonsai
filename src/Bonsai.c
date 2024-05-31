@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <spawn.h>
 #include <swc.h>
 #include <unistd.h>
 #include <wayland-server.h>
@@ -27,6 +28,21 @@ static const Direction dirmap[] = {
 	FORALL_DIR(BIND)
 };
 #undef BIND
+
+void dbtree(void)
+{
+	LOG("\n");
+	printtree(screens[scurr]->whole, stderr, (Args) {
+			.geo = {
+				.x = gappx/2,
+				.y = barpx+gappx/2,
+				.w = screens[scurr]->screen->usable_geometry.width-gappx,
+				.h = screens[scurr]->screen->usable_geometry.height-gappx-barpx,
+				.filter = screens[scurr]->filter,
+			}
+		});
+	LOG("\n");
+}
 
 void setborder(Region *r, Args _)
 {
@@ -149,30 +165,56 @@ void quit(void *data, uint32_t time, uint32_t value, uint32_t state)
 	exit((long)data);
 }
 
-void delwin(void *win)
+static inline void delwin(Region *todestroy, int screen)
+{
+	if (todestroy) {
+		Region *r = orphan(todestroy);
+		LOG("found orphan\n");
+		if (!r) {
+			quit((void *)EXIT_FAILURE, 0, 0, 0);
+		}
+		if (!r->parent) {
+			LOG("root replaced\n");
+			screens[screen]->whole = r;
+		}
+		else for (int i = 0; i < 3 && (r->type == SPLIT || r == todestroy); i++) {
+			LOG("searching for neighbor, %b\n", i);
+			r = findneighbor(todestroy, (Direction){(i&2)>>1,(i&1)}, screens[screen]->filter);
+		}
+		if (r->type == SPLIT) {
+			LOG("only neighbor was split. last resort search\n");
+			r = find(screens[screen]->whole, NULL, screens[screen]->filter);
+		}
+		screens[screen]->curr = r;
+		swc_window_hide(todestroy->win);
+		LOG("window hidden\n");
+		free(todestroy);
+		LOG("region destroyed\n");
+		drawscreen(screens[screen]);
+	}
+}
+
+void delcurr(void *_, uint32_t time, uint32_t value, uint32_t state)
+{
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
+		return;
+	delwin(screens[scurr]->curr, scurr);
+}
+
+void windel(void *win)
 {
 	for (int i = 0; i < scount; i++) {
 		Region *todestroy = find(screens[i]->whole, (Window)win, ~0);
 		if (todestroy) {
-			Region *r = orphan(todestroy);
-			if (!r)
-				quit((void *)EXIT_FAILURE, 0, 0, 0);
-			if (!r->parent)
-				screens[i]->whole = r;
-			screens[i]->curr = r;
-			free(todestroy);
-			drawscreen(screens[i]);
+			delwin(todestroy, i);
 			return;
-		}
+		} 
 	}
+	/*if the window is not found in any region, it is transient or floating
+	 * or whatever. some weird edge case. this code almost never runs*/
+	swc_window_hide(win);
 }
 
-void delcurr(void *win, uint32_t time, uint32_t value, uint32_t state)
-{
-	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
-		return;
-	delwin(win);
-}
 
 void focus(void *win)
 {
@@ -200,7 +242,7 @@ void movefocus(void *_, uint32_t time, uint32_t value, uint32_t state)
 
 
 struct swc_window_handler *winhandler = &(struct swc_window_handler){
-	.destroy = delwin,
+	.destroy = windel,
 	.entered = focus
 };
 
@@ -216,8 +258,8 @@ void newwin(struct swc_window *s)
 	new->parent = NULL;
 	new->tags = screens[scurr]->filter;
 
-	screens[scurr]->curr = spawn(split(screens[scurr]->curr, diropen.o, 0.5),
-			                     s, diropen.s ,screens[scurr]->filter);
+	screens[scurr]->curr = split(screens[scurr]->curr, diropen, 0.5, s,
+			                     screens[scurr]->filter);
 
 	if (!screens[scurr]->curr->parent)
 		screens[scurr]->whole = screens[scurr]->curr;
@@ -227,20 +269,11 @@ void newwin(struct swc_window *s)
 	swc_window_set_handler(s, winhandler, s);
 	swc_window_set_tiled(s);
 	swc_window_focus(s);
-	printtree(screens[scurr]->whole, stderr, (Args) {
-			.geo = {
-				.x = gappx/2,
-				.y = barpx+gappx/2,
-				.w = screens[scurr]->screen->usable_geometry.width-gappx,
-				.h = screens[scurr]->screen->usable_geometry.height-gappx-barpx,
-				.filter = screens[scurr]->filter,
-			}
-		});
-	LOG("\n");
+	dbtree();
 	drawscreen(screens[scurr]);
 }
 
-void openwin(void *data, uint32_t time, uint32_t value, uint32_t state)
+void spawn(void *data, uint32_t time, uint32_t value, uint32_t state)
 {
 	diropen = dirmap[value];
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
@@ -250,7 +283,10 @@ void openwin(void *data, uint32_t time, uint32_t value, uint32_t state)
 		execvp(*(char **)data, data);
 		exit(EXIT_FAILURE);
 	}
+	int _;
+	posix_spawnp(&_, *(char **)data, NULL, NULL, data, NULL);
 }
+
 static struct swc_manager *man = &(struct swc_manager){
 	.new_screen = newscreen,
 	.new_window = newwin,
@@ -277,12 +313,11 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
-	static const char *term[] = {"weston-terminal", NULL};
-	static const char *disc[] = {"discord", NULL};
+	static const char *term[] = {"st", NULL};
 
     #define BINDTERM(key,_) { \
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, key, \
-			        openwin, term); \
+			        spawn, term); \
     }
     #define MOVEFOCUS(key,_) { \
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, key, \

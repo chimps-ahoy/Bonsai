@@ -53,23 +53,16 @@ void freeregion(Region *, Args);
  */
 void propegatetags(Region *);
 
-/* Splits the given region in half with the given orientation and fact
+/* Splits the given region with the specified factor, populating the remaining
+ * region with the specified window all in the direction given
  *
- * PARAMS: The region to split, the split's orientation and fact
+ * PARAMS: The region to split, the factor and direction to split it,
+ * the window to populate the new region with and the tags it has.
  *
- * RETURNS: A pointer to the new split
+ * RETURNS: A pointer to the new sibling of the original region.
+ * NOTE: Must check return value to see if it should fill the entire tiling
  */
-Region *split(Region *, Orientation, float);
-
-/* Adds a client to the given region on the given side with the given tags
- *
- * PARAMS: The region which will contain the new client, the side to which
- * the client should belong, and the tags the client will have
- *
- * RETURNS: A pointer to the Region
- * NOTE: Must check the return value to see if it should become the screen(root)
- */
-Region *spawn(Region *, Window, Side, uint8_t);
+Region *split(Region *, Direction, float, Window, uint8_t);
 
 /* Reflects the given region about the line x=y
  *
