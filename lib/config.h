@@ -6,11 +6,11 @@
 	DO(XKB_KEY_k, NORTH) \
 	DO(XKB_KEY_l, EAST)
 
-static const unsigned int borderpx = 3;
-static const unsigned long highlight = 0xff0000;
-static const unsigned long border = 0x0000ff;
+static constexpr unsigned int borderpx = 3;
+static constexpr unsigned long highlight = 0x33aa33;
+static constexpr unsigned long border = 0x333366;
 
-static const unsigned int gappx = 6;
-static const unsigned int barpx = 12;
+static constexpr unsigned int gappx = 3;
+static constexpr unsigned int barpx = 0;
 
 static const Direction defopen = EAST;

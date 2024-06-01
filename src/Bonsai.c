@@ -60,16 +60,16 @@ void draw(Region *n, Args a)
 		swc_window_hide(n->win);
 	} else {
 		struct swc_rectangle geo = {
-			.x = a.geo.x+gappx/2,
-			.y = a.geo.y+gappx/2,
-			.width = a.geo.w-gappx,
-			.height = a.geo.h-gappx,
+			.x = a.geo.x+gappx+borderpx,
+			.y = a.geo.y+gappx+borderpx,
+			.width = a.geo.w-2*gappx-2*borderpx,
+			.height = a.geo.h-2*gappx-2*borderpx,
 		};
 		LOG("tags match. drawing window @ (%d,%d)%dx%d\n",
-			geo.x+gappx/2,
-			geo.y+gappx/2,
-			geo.width-gappx,
-			geo.height-gappx);
+			geo.x,
+			geo.y,
+			geo.width,
+			geo.height);
 		setborder(n, (Args){0});
 		swc_window_show(n->win);
 		swc_window_set_geometry(n->win, &geo);
@@ -80,10 +80,10 @@ void drawscreen(Tiling *t)
 {
 	Args geo = (Args){
 		.geo = {
-			.x = gappx/2,
-			.y = barpx+gappx/2,
-			.w = t->screen->usable_geometry.width-gappx,
-			.h = t->screen->usable_geometry.height-gappx-barpx,
+			.x = 0/*+gappx+borderpx*/,
+			.y = barpx/*+gappx+borderpx*/,
+			.w = t->screen->usable_geometry.width/*-2*gappx-2*borderpx*/,
+			.h = t->screen->usable_geometry.height/*-2*gappx-2*borderpx*/-barpx,
 			.filter = t->filter,
 		}
 	};
