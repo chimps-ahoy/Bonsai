@@ -6,6 +6,8 @@
 
 #define NT(x) ((x)^1)
 
+#define OFFSET (borderpx+gappx)
+
 #define SIZE(x) ((sizeof(x))/(sizeof(*(x))))
 
 #define LIST(x,_) \

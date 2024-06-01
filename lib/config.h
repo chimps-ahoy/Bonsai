@@ -13,4 +13,4 @@ static constexpr unsigned long border = 0x333366;
 static constexpr unsigned int gappx = 3;
 static constexpr unsigned int barpx = 0;
 
-static const Direction defopen = EAST;
+static constexpr Direction defopen = EAST;

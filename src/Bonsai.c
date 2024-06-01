@@ -34,10 +34,10 @@ void dbtree(void)
 	LOG("\n");
 	printtree(screens[scurr]->whole, stderr, (Args) {
 			.geo = {
-				.x = gappx/2,
-				.y = barpx+gappx/2,
-				.w = screens[scurr]->screen->usable_geometry.width-gappx,
-				.h = screens[scurr]->screen->usable_geometry.height-gappx-barpx,
+				.x = OFFSET,
+				.y = barpx+OFFSET,
+				.w = screens[scurr]->screen->usable_geometry.width-2*OFFSET,
+				.h = screens[scurr]->screen->usable_geometry.height-barpx-2*OFFSET,
 				.filter = screens[scurr]->filter,
 			}
 		});
@@ -46,33 +46,38 @@ void dbtree(void)
 
 void setborder(Region *r, Args _)
 {
+    #ifdef DEBUG
+	int border = rand();
+    #else
+	int border = border;
+    #endif
 	if (screens[scurr]->curr == r) 
 		swc_window_set_border(r->win, highlight, borderpx);
 	else
 		swc_window_set_border(r->win, border, borderpx);
 }
 
-void draw(Region *n, Args a)
+void draw(Region *r, Args a)
 {
-	LOG("tags: %B, filter: %B\n", n->tags, a.geo.filter);
-	if (!(a.geo.filter & n->tags)) {
-		LOG("tags don't match. hiding window.\n");
-		swc_window_hide(n->win);
+	LOG("tags: %B, filter: %B\r", r->tags, a.geo.filter);
+	if (!(a.geo.filter & r->tags)) {
+		LOG("tags don't match. hiding window.\r");
+		swc_window_hide(r->win);
 	} else {
 		struct swc_rectangle geo = {
-			.x = a.geo.x+gappx+borderpx,
-			.y = a.geo.y+gappx+borderpx,
-			.width = a.geo.w-2*gappx-2*borderpx,
-			.height = a.geo.h-2*gappx-2*borderpx,
+			.x = a.geo.x+OFFSET,
+			.y = a.geo.y+OFFSET,
+			.width = a.geo.w-2*OFFSET,
+			.height = a.geo.h-2*OFFSET,
 		};
-		LOG("tags match. drawing window @ (%d,%d)%dx%d\n",
+		LOG("tags match. drawing window @ (%d,%d)%dx%d\r",
 			geo.x,
 			geo.y,
 			geo.width,
 			geo.height);
-		setborder(n, (Args){0});
-		swc_window_show(n->win);
-		swc_window_set_geometry(n->win, &geo);
+		setborder(r, (Args){0});
+		swc_window_show(r->win);
+		swc_window_set_geometry(r->win, &geo);
 	}
 }
 
@@ -80,10 +85,10 @@ void drawscreen(Tiling *t)
 {
 	Args geo = (Args){
 		.geo = {
-			.x = 0/*+gappx+borderpx*/,
-			.y = barpx/*+gappx+borderpx*/,
-			.w = t->screen->usable_geometry.width/*-2*gappx-2*borderpx*/,
-			.h = t->screen->usable_geometry.height/*-2*gappx-2*borderpx*/-barpx,
+			.x = OFFSET,
+			.y = barpx+OFFSET,
+			.w = t->screen->usable_geometry.width-2*OFFSET,
+			.h = t->screen->usable_geometry.height-barpx-2*OFFSET,
 			.filter = t->filter,
 		}
 	};
