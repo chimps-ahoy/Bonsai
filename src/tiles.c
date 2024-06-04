@@ -141,10 +141,9 @@ static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *b
 {
 	Region *container = r->container;
 	while (container) {
-		bool bcktrck = (d&NOSIDE) && container->subregion[d&SIDEMASK] == r;
-		bool invis = (d&NOSIDE) && container->subregion[d&SIDEMASK]->tags & ~filter; 
-		LOG("bcktck = %d, invis = %d\n", bcktrck, invis);
-		if (!((container->o ^ d)&ORIENMASK) && !bcktrck && !invis)
+		bool nobacktrack = (d&NOSIDE) || container->subregion[d&SIDEMASK] != r;
+		bool visible = (d&NOSIDE) || container->subregion[d&SIDEMASK]->tags & filter;
+		if (!((container->o ^ d)&ORIENMASK) && nobacktrack && visible)
 			return container;
 		else if ((container->o ^ d)&ORIENMASK)
 			push(breadcrumbs, IN(r));
