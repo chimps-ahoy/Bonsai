@@ -120,15 +120,15 @@ static Region *insert(Region *currsplit, Window w, Side child, uint8_t tags)
 
 Region *split(Region *tosplit, Direction to, float fact, Window w, uint8_t tags)
 {
-	return insert(reparent(tosplit, to.o, fact), w, to.s, tags);
+	return insert(reparent(tosplit, to&ORIENMASK, fact), w, to&SIDEMASK, tags);
 }
 
 static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *breadcrumbs)
 {	
-	if (r->type == SPLIT && r->o == d.o && r->subregion[NT(d.s)]->tags & filter)
-		return findnext(r->subregion[NT(d.s)], d, filter, breadcrumbs);
-	if (r->type == SPLIT && r->o == d.o)
-		return findnext(r->subregion[d.s], d, filter, breadcrumbs);
+	if (r->type == SPLIT && r->o == (d&ORIENMASK) && r->subregion[NT(d&SIDEMASK)]->tags & filter)
+		return findnext(r->subregion[NT(d&SIDEMASK)], d, filter, breadcrumbs);
+	if (r->type == SPLIT && r->o == (d&ORIENMASK))
+		return findnext(r->subregion[d&SIDEMASK], d, filter, breadcrumbs);
 	Side crumb = pop(breadcrumbs);
 	if (r->type == SPLIT && r->subregion[crumb]->tags & filter)
 		return findnext(r->subregion[crumb], d, filter, breadcrumbs);
@@ -141,11 +141,11 @@ static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *b
 {
 	Region *container = r->container;
 	while (container) {
-		int nobacktrack = (d.s != FAKESIDE) ? container->subregion[d.s] != r : 1; //TODO: this is kinda hacky...
-		int tagmatch = (d.s != FAKESIDE) ? container->subregion[d.s]->tags & filter : 1;
-		if (container->o == d.o && nobacktrack && tagmatch)
+		int nobacktrack = (d&NOSIDE) ? container->subregion[d&SIDEMASK] != r : 1; //TODO: this is kinda hacky...
+		int tagmatch = (d&NOSIDE) ? container->subregion[d&SIDEMASK]->tags & filter : 1;
+		if (container->o == (d&ORIENMASK) && nobacktrack && tagmatch)
 			return container;
-		else if (container->o != d.o)
+		else if (container->o != (d&ORIENMASK))
 			push(breadcrumbs, IN(r));
 		r = container;
 		container = container->container;
@@ -159,7 +159,7 @@ Region *findneighbor(Region *curr, const Direction d, uint8_t filter)
 	Stack *breadcrumbs = initstack();
 	Region *container = findparent(curr, filter, d, breadcrumbs);
 	if (container)
-		curr = findnext(container->subregion[d.s], d, filter, breadcrumbs);
+		curr = findnext(container->subregion[d&SIDEMASK], d, filter, breadcrumbs);
 	freestack(breadcrumbs);
 	return curr;
 }
@@ -207,11 +207,11 @@ Region *orphan(Region *r)
 void shiftwidth(Region *r, const Direction d, uint8_t filter)
 {
 	if (!r) return;
-	Region *container = findparent(r, filter, (Direction){ d.o, FAKESIDE }, NULL);
+	Region *container = findparent(r, filter, d|NOSIDE, NULL);
 	if (!container && r->container)
 		container = findparent(r->container->subregion[NT(IN(r))],
-							filter, (Direction){ d.o, FAKESIDE }, NULL);
-	if (container && d.s == R)
+							filter, d|NOSIDE, NULL);
+	if (container && (d&SIDEMASK) == R)
 		container->fact = MAX(0.1,MIN(container->fact+0.1, 0.9));
 	else if (container)
 		container->fact = MIN(0.9,MAX(container->fact-0.1, 0.1));
@@ -221,13 +221,13 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 { 
 	if (!r) return NULL;
 	if (!r->container) return r;
-	if (r->container->o != d.o) {
+	if (r->container->o != (d&ORIENMASK)) {
 		Side s = IN(r); 
-		if (s != d.s) {
+		if (s != (d&SIDEMASK)) {
 			r->container->subregion[s] = r->container->subregion[NT(s)];
 			r->container->subregion[NT(s)] = r;
 		}
-		r->container->o = d.o;
+		r->container->o = d&ORIENMASK;
 		return r->container;
 	}
 
@@ -239,11 +239,11 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 		return neighbor->container;
 	}
 
-	Side s = d.s;
-	if (neighbor != r) s = NT(d.s);
+	Side s = d&SIDEMASK;
+	if (neighbor != r) s = NT(d&SIDEMASK);
 	else for(; neighbor->container; neighbor = neighbor->container); 
 
-	neighbor = reparent(neighbor, d.o, 0.5);
+	neighbor = reparent(neighbor, d&ORIENMASK, 0.5);
 	if (neighbor->subregion[s])
 		neighbor->subregion[NT(s)] = neighbor->subregion[s];
 	neighbor->subregion[s] = r;
@@ -269,7 +269,7 @@ inline Args partition(Region *r, Args a)
 	bool vis = r->tags & a.geo.filter;
 	r = r->container;
 	bool fill = !(r->subregion[NT(fr)]->tags & a.geo.filter);
-	Orientation o = r->o;
+	Orientation o = (r->o)>>1;
 	float fa = r->fact;
 	return (Args){
 		.geo = {

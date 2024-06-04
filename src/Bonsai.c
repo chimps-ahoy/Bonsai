@@ -39,7 +39,7 @@ static const Direction dirmap[] = {
 };
 #undef BIND
 
-inline void dbtree(void)
+static inline void dbtree(void)
 {
 	LOG("\n");
 	printtree(screens[scurr]->whole, stderr, (Args) {
@@ -89,7 +89,7 @@ void draw(Region *r, Args a)
 	}
 }
 
-inline void drawscreen(Tiling *t)
+static inline void drawscreen(Tiling *t)
 {
 	Args geo = (Args){
 		.geo = {
@@ -190,9 +190,9 @@ static inline void delwin(Region *todestroy, int screen)
 			LOG("root replaced\n");
 			screens[screen]->whole = r;
 		}
-		else for (int i = 0; i < 3 && (!contents(r) || r == todestroy); i++) {
+		else for (int i = 0; i < 4 && (!contents(r) || r == todestroy); i++) {
 			LOG("searching for neighbor, %b\n", i);
-			r = findneighbor(todestroy, (Direction){(i&2)>>1,(i&1)}, screens[screen]->filter);
+			r = findneighbor(todestroy, i, screens[screen]->filter);
 		}
 		if (!contents(r)) {
 			LOG("only neighbor was split. last resort search\n");
