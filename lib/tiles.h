@@ -6,47 +6,59 @@
 
 #include "types.h"
 
-#define IN(x) (((x)->parent->subregion[L] == (x)) ? L : R)
+#define IN(x) (((x)->container->subregion[L] == (x)) ? L : R)
 
 /*
  * A region of the screen, represented by a node in a binary split tree
  */
-typedef struct node {
-	Type type;
-	struct node *parent;
-	uint8_t tags;
-	union {
-		Window win;/*client*/
-		struct /*split*/ {
-			struct node *subregion[2];
-			float fact;
-			Orientation o;
-		};
-	};
-} Region;
-
-/*
- * A binary split tree of windows.
- * contains a pointer to the root, which represents the region encompassing the entire screen,
- * the current focused region,
- * and a bit array for the tag filter of the current view
- */
-typedef struct {
-	Screen screen;
-	Region *whole;
-	Region *curr;
-	uint8_t filter;
-} Tiling;
+typedef struct node Region;
 
 /* Debug printing
  *
  */
 void printtree(Region *, FILE *, Args a);
 
+/* Gets the contents of a region, returning the window data if it is a client,
+ * and NULL if it is a split
+ * 
+ * PARAMS: The region whose contents we require
+ * RETURNS: The contents of the region
+ */
+Window contents(Region *);
+
+/* Returns a bool indicating whether this split is orphaned or not.
+ *
+ * PARAMS: The region to check
+ * RETURNS: True if the region has no container
+ */
+bool isorphan(Region *);
+
+/* Conditionally replaces the first region in-place with the second if the
+ * second region or its container is a suitable whole (root)
+ *
+ * PARAMS: A pointer to the location where the whole is stored. The contender
+ * region
+ * TODO: This interface is kinda cringe but this behaviour isn't implementation
+ * unique and exists for any way these region trees are modified, so it makes sense
+ * to encapsulate it into its own function
+ */
+void zoomout(Region **, Region *);
+
+/* Returns a bool indicating if the region's tags match the filter
+ *
+ * PARAMS: The region and filter to check
+ * RETURNS: True if the region matches
+ */
+bool visible(Region *, uint8_t);
+
+/* Simply frees a region. Matches definition to be used with trickle
+ *
+ * PARAMS: The region to free. Args are ignored
+ */
 void freeregion(Region *, Args);
 
-/* Updates the tags of the given split Region's parent to be the union of its
- * childrens' tags, then travels to its parent and repeats until reaching the
+/* Updates the tags of the given split Region's container to be the union of its
+ * childrens' tags, then travels to its container and repeats until reaching the
  * root
  *
  * PARAMS: The region whose tags we want to propegate up. Should be a client region.
@@ -79,7 +91,7 @@ void reflect(Region *);
  */
 Region *find(Region *, Window, uint8_t);
 
-/* Orphans the given node, detacting it from its parent and causing its
+/* Orphans the given node, detacting it from its container and causing its
  * sibling to superscede it
  *
  * PARAMS: The node to orphan
@@ -134,10 +146,10 @@ Region *moveclient(Region *, const Direction, uint8_t);
 void trickle(Region *n, void(*F)(Region *, Args), Args a, Args(*T)(Region *, Args));
 
 
-/* Calculates the geometry of a Region given its parent's dimensions
+/* Calculates the geometry of a Region given its container's dimensions
  * as an Args(geo). Returns as an Args(geo)
  *
- * PARAMS: The node and its parent's dimension as an Args(geo)
+ * PARAMS: The node and its container's dimension as an Args(geo)
  *
  * RETURNS: The dimensions of the given node as an Args(geo)
  */

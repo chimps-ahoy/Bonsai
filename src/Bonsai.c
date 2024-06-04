@@ -1,3 +1,4 @@
+/* INCLUDES */
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -7,21 +8,30 @@
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
 
+/* TYPES */
 #define WINTYPES
 typedef struct swc_window * Window;
-typedef struct swc_screen * Screen;
 
 #include "types.h"
 #include "tiles.h"
 #include "config.h"
 #include "util.h"
 
+typedef struct {
+	struct swc_screen *screen;
+	Region *whole;
+	Region *curr;
+	uint8_t filter;
+} Tiling;
+
+/* STATE INFO */
 static struct wl_display *dpy = NULL;
 static Tiling **screens = NULL;
 static int scount = 0;
 static int ssize = 0;
 static int scurr = 0;
 
+/* CONFIG INFO */
 static Direction diropen = defopen;
 #define BIND(key,dir) [key] = dir,
 static const Direction dirmap[] = {
@@ -29,7 +39,7 @@ static const Direction dirmap[] = {
 };
 #undef BIND
 
-void dbtree(void)
+inline void dbtree(void)
 {
 	LOG("\n");
 	printtree(screens[scurr]->whole, stderr, (Args) {
@@ -52,17 +62,15 @@ void setborder(Region *r, Args _)
 	int border = border;
     #endif
 	if (screens[scurr]->curr == r) 
-		swc_window_set_border(r->win, highlight, borderpx);
+		swc_window_set_border(contents(r), highlight, borderpx);
 	else
-		swc_window_set_border(r->win, border, borderpx);
+		swc_window_set_border(contents(r), border, borderpx);
 }
 
 void draw(Region *r, Args a)
 {
-	LOG("tags: %B, filter: %B\r", r->tags, a.geo.filter);
-	if (!(a.geo.filter & r->tags)) {
-		LOG("tags don't match. hiding window.\r");
-		swc_window_hide(r->win);
+	if (!visible(r, a.geo.filter)) {
+		swc_window_hide(contents(r));
 	} else {
 		struct swc_rectangle geo = {
 			.x = a.geo.x+OFFSET,
@@ -76,12 +84,12 @@ void draw(Region *r, Args a)
 			geo.width,
 			geo.height);
 		setborder(r, (Args){0});
-		swc_window_show(r->win);
-		swc_window_set_geometry(r->win, &geo);
+		swc_window_show(contents(r));
+		swc_window_set_geometry(contents(r), &geo);
 	}
 }
 
-void drawscreen(Tiling *t)
+inline void drawscreen(Tiling *t)
 {
 	Args geo = (Args){
 		.geo = {
@@ -99,7 +107,7 @@ void delscreen(void *data)
 {
 	int i = 0;
 	do {
-		if (screens[i]->screen == (Screen)data) {
+		if (screens[i]->screen == (struct swc_screen *)data) {
 			trickle(screens[i]->whole, freeregion, (Args){0}, id);
 			screens[i] = NULL;
 			break;
@@ -112,7 +120,7 @@ void delscreen(void *data)
 void redrawscreen(void *data)
 {
 	for (int i = 0; i < scount; i++) {
-		if (screens[i]->screen == (Screen)data) {
+		if (screens[i]->screen == (struct swc_screen *)data) {
 			drawscreen(screens[i]);
 			return;
 		}
@@ -178,20 +186,20 @@ static inline void delwin(Region *todestroy, int screen)
 		if (!r) {
 			quit((void *)EXIT_FAILURE, 0, 0, 0);
 		}
-		if (!r->parent) {
+		if (isorphan(r)) {
 			LOG("root replaced\n");
 			screens[screen]->whole = r;
 		}
-		else for (int i = 0; i < 3 && (r->type == SPLIT || r == todestroy); i++) {
+		else for (int i = 0; i < 3 && (!contents(r) || r == todestroy); i++) {
 			LOG("searching for neighbor, %b\n", i);
 			r = findneighbor(todestroy, (Direction){(i&2)>>1,(i&1)}, screens[screen]->filter);
 		}
-		if (r->type == SPLIT) {
+		if (!contents(r)) {
 			LOG("only neighbor was split. last resort search\n");
 			r = find(screens[screen]->whole, NULL, screens[screen]->filter);
 		}
 		screens[screen]->curr = r;
-		swc_window_hide(todestroy->win);
+		swc_window_hide(contents(todestroy));
 		LOG("window hidden\n");
 		free(todestroy);
 		LOG("region destroyed\n");
@@ -220,7 +228,6 @@ void windel(void *win)
 	swc_window_hide(win);
 }
 
-
 void focus(void *win)
 {
 	if (win) {
@@ -242,9 +249,8 @@ void movefocus(void *_, uint32_t time, uint32_t value, uint32_t state)
 					         dirmap[value], screens[scurr]->filter))) {
 		screens[scurr]->curr = next;
 	}
-	focus(screens[scurr]->curr->win);
+	focus(contents(screens[scurr]->curr));
 }
-
 
 struct swc_window_handler *winhandler = &(struct swc_window_handler){
 	.destroy = windel,
@@ -255,11 +261,7 @@ void newwin(struct swc_window *s)
 {
 	screens[scurr]->curr = split(screens[scurr]->curr, diropen, 0.5, s,
 			                     screens[scurr]->filter);
-
-	if (!screens[scurr]->curr->parent)
-		screens[scurr]->whole = screens[scurr]->curr;
-	else if (!screens[scurr]->curr->parent->parent)
-		screens[scurr]->whole = screens[scurr]->curr->parent;
+	zoomout(&(screens[scurr]->whole), screens[scurr]->curr);
 
 	swc_window_set_handler(s, winhandler, s);
 	swc_window_set_tiled(s);
@@ -274,12 +276,9 @@ void spawn(void *data, uint32_t time, uint32_t value, uint32_t state)
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
 	LOG("spawning %s\n", *(char **)data);
-	if (fork() == 0) {
-		execvp(*(char **)data, data);
-		exit(EXIT_FAILURE);
-	}
+	extern char **environ;
 	int _;
-	posix_spawnp(&_, *(char **)data, NULL, NULL, data, NULL);
+	posix_spawnp(&_, *(char **)data, NULL, NULL, data, environ);
 }
 
 static struct swc_manager *man = &(struct swc_manager){

@@ -6,6 +6,20 @@
 #include "stack.h"
 #include "util.h"
 
+typedef struct node {
+	Type type;
+	struct node *container;
+	uint8_t tags;
+	union {
+		Window win;/*client*/
+		struct /*split*/ {
+			struct node *subregion[2];
+			float fact;
+			Orientation o;
+		};
+	};
+} Region;
+
 void printtree(Region *r, FILE *f, Args a)
 {
 #ifdef DEBUG
@@ -26,14 +40,38 @@ void printtree(Region *r, FILE *f, Args a)
 #endif
 }
 
-void freeregion(Region *r, Args _)
+inline Window contents(Region *r)
+{
+	if (r->type == CLIENT) return r->win;
+	return NULL;
+}
+
+inline bool isorphan(Region *r)
+{
+	return !(bool)(r->container);
+}
+
+inline void zoomout(Region **whole, Region *r)
+{
+	if (!r->container)
+		*whole = r;
+	else if (!r->container->container)
+		*whole = r->container;
+}
+
+inline bool visible(Region *r, uint8_t filter)
+{
+	return r->tags & filter;
+}
+
+inline void freeregion(Region *r, Args _)
 {
 	free(r);
 }
 
-void propegatetags(Region *r)
+inline void propegatetags(Region *r)
 {
-	while ((r = r->parent)) 
+	while ((r = r->container)) 
 		r->tags = r->subregion[L]->tags | r->subregion[R]->tags;
 }
 
@@ -46,21 +84,21 @@ static Region *reparent(Region *tosplit, Orientation o, float fact)
 	new->type = SPLIT;
 	new->o = o;
 	new->fact = fact;
-	new->parent = tosplit->parent;
-	if (new->parent)
-		new->parent->subregion[IN(tosplit)] = new;
-	tosplit->parent = new;
+	new->container = tosplit->container;
+	if (new->container)
+		new->container->subregion[IN(tosplit)] = new;
+	tosplit->container = new;
 	new->subregion[L] = tosplit;
 	new->subregion[R] = NULL;
 	new->tags = tosplit->tags;
 	return new;
 }
 
-static Region *append(Region *currsplit, Window w, Side child, uint8_t tags)
+static Region *insert(Region *currsplit, Window w, Side child, uint8_t tags)
 {
 	if (!currsplit) {
 		Region *new = malloc(sizeof(Region));
-		new->parent = NULL;
+		new->container = NULL;
 		new->type = CLIENT;
 		new->tags = tags;
 		new->win = w;
@@ -70,7 +108,7 @@ static Region *append(Region *currsplit, Window w, Side child, uint8_t tags)
 		currsplit->subregion[NT(child)] = currsplit->subregion[child];
 	currsplit->subregion[child] = malloc(sizeof(Region));
 	if (!(currsplit->subregion[child])) return NULL;
-	currsplit->subregion[child]->parent = currsplit;
+	currsplit->subregion[child]->container = currsplit;
 	currsplit->subregion[child]->type = CLIENT;
 	currsplit->subregion[child]->tags = tags;
 	currsplit->subregion[child]->win = w;
@@ -82,7 +120,7 @@ static Region *append(Region *currsplit, Window w, Side child, uint8_t tags)
 
 Region *split(Region *tosplit, Direction to, float fact, Window w, uint8_t tags)
 {
-	return append(reparent(tosplit, to.o, fact), w, to.s, tags);
+	return insert(reparent(tosplit, to.o, fact), w, to.s, tags);
 }
 
 static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *breadcrumbs)
@@ -101,27 +139,27 @@ static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *bre
 
 static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *breadcrumbs)
 {
-	Region *parent = r->parent;
-	while (parent) {
-		int nobacktrack = (d.s != FAKESIDE) ? parent->subregion[d.s] != r : 1; //TODO: this is kinda hacky...
-		int tagmatch = (d.s != FAKESIDE) ? parent->subregion[d.s]->tags & filter : 1;
-		if (parent->o == d.o && nobacktrack && tagmatch)
-			return parent;
-		else if (parent->o != d.o)
+	Region *container = r->container;
+	while (container) {
+		int nobacktrack = (d.s != FAKESIDE) ? container->subregion[d.s] != r : 1; //TODO: this is kinda hacky...
+		int tagmatch = (d.s != FAKESIDE) ? container->subregion[d.s]->tags & filter : 1;
+		if (container->o == d.o && nobacktrack && tagmatch)
+			return container;
+		else if (container->o != d.o)
 			push(breadcrumbs, IN(r));
-		r = parent;
-		parent = parent->parent;
+		r = container;
+		container = container->container;
 	}
-	return parent;
+	return container;
 }
 
 Region *findneighbor(Region *curr, const Direction d, uint8_t filter)
 {
 	if (!curr) return NULL;
 	Stack *breadcrumbs = initstack();
-	Region *parent = findparent(curr, filter, d, breadcrumbs);
-	if (parent)
-		curr = findnext(parent->subregion[d.s], d, filter, breadcrumbs);
+	Region *container = findparent(curr, filter, d, breadcrumbs);
+	if (container)
+		curr = findnext(container->subregion[d.s], d, filter, breadcrumbs);
 	freestack(breadcrumbs);
 	return curr;
 }
@@ -150,68 +188,68 @@ Region *find(Region *r, Window w, uint8_t filter)
 Region *orphan(Region *r)
 {
 	if (!r) return NULL;
-	Region *parent = r->parent;
-	if (!parent) return NULL; /*probably no*/
+	Region *container = r->container;
+	if (!container) return NULL; /*probably no*/
 
-	r = parent->subregion[NT(IN(r))];
+	r = container->subregion[NT(IN(r))];
 
-	if (parent->parent) {
-		parent->parent->subregion[IN(parent)] = r;
-		r->parent = parent->parent;
+	if (container->container) {
+		container->container->subregion[IN(container)] = r;
+		r->container = container->container;
 		propegatetags(r);
 	} else {
-		r->parent = NULL;
+		r->container = NULL;
 	}
-	free(parent);
+	free(container);
 	return r;
 }
 
 void shiftwidth(Region *r, const Direction d, uint8_t filter)
 {
 	if (!r) return;
-	Region *parent = findparent(r, filter, (Direction){ d.o, FAKESIDE }, NULL);
-	if (!parent && r->parent)
-		parent = findparent(r->parent->subregion[NT(IN(r))],
+	Region *container = findparent(r, filter, (Direction){ d.o, FAKESIDE }, NULL);
+	if (!container && r->container)
+		container = findparent(r->container->subregion[NT(IN(r))],
 							filter, (Direction){ d.o, FAKESIDE }, NULL);
-	if (parent && d.s == R)
-		parent->fact = MAX(0.1,MIN(parent->fact+0.1, 0.9));
-	else if (parent)
-		parent->fact = MIN(0.9,MAX(parent->fact-0.1, 0.1));
+	if (container && d.s == R)
+		container->fact = MAX(0.1,MIN(container->fact+0.1, 0.9));
+	else if (container)
+		container->fact = MIN(0.9,MAX(container->fact-0.1, 0.1));
 }
 
 Region *moveclient(Region *r, const Direction d, uint8_t filter)
 { 
 	if (!r) return NULL;
-	if (!r->parent) return r;
-	if (r->parent->o != d.o) {
+	if (!r->container) return r;
+	if (r->container->o != d.o) {
 		Side s = IN(r); 
 		if (s != d.s) {
-			r->parent->subregion[s] = r->parent->subregion[NT(s)];
-			r->parent->subregion[NT(s)] = r;
+			r->container->subregion[s] = r->container->subregion[NT(s)];
+			r->container->subregion[NT(s)] = r;
 		}
-		r->parent->o = d.o;
-		return r->parent;
+		r->container->o = d.o;
+		return r->container;
 	}
 
 	Region *neighbor = findneighbor(r, d, filter);
-	if (neighbor != r && neighbor->parent == r->parent) {
+	if (neighbor != r && neighbor->container == r->container) {
 		Side s = IN(neighbor);
-		neighbor->parent->subregion[s] = r;
-		neighbor->parent->subregion[NT(s)] = neighbor;
-		return neighbor->parent;
+		neighbor->container->subregion[s] = r;
+		neighbor->container->subregion[NT(s)] = neighbor;
+		return neighbor->container;
 	}
 
 	Side s = d.s;
 	if (neighbor != r) s = NT(d.s);
-	else for(; neighbor->parent; neighbor = neighbor->parent); 
+	else for(; neighbor->container; neighbor = neighbor->container); 
 
 	neighbor = reparent(neighbor, d.o, 0.5);
 	if (neighbor->subregion[s])
 		neighbor->subregion[NT(s)] = neighbor->subregion[s];
 	neighbor->subregion[s] = r;
 	Region *tmp = orphan(r);
-	r->parent = neighbor;
-	return (tmp->parent) ? neighbor : tmp;
+	r->container = neighbor;
+	return (tmp->container) ? neighbor : tmp;
 }
 
 void trickle(Region *r, void(*F)(Region *, Args), Args a, Args(*T)(Region *, Args))
@@ -225,28 +263,28 @@ void trickle(Region *r, void(*F)(Region *, Args), Args a, Args(*T)(Region *, Arg
 	F(r,a);
 }
 
-Args partition(Region *r, Args a)
+inline Args partition(Region *r, Args a)
 {
 	Side fr = IN(r);
-	uint8_t vis = !!(r->tags & a.geo.filter);
-	r = r->parent;
-	uint8_t fill = !(r->subregion[NT(fr)]->tags & a.geo.filter);
+	bool vis = r->tags & a.geo.filter;
+	r = r->container;
+	bool fill = !(r->subregion[NT(fr)]->tags & a.geo.filter);
 	Orientation o = r->o;
 	float fa = r->fact;
-	return (Args){ .geo = {
-	               .x = (a.geo.x + (fr & NT(fill) & NT(o)) * a.geo.w * (1 - fa)),
-	               .y = (a.geo.y + (fr & NT(fill) & o)     * a.geo.h * (1 - fa)),
-	               .w = vis * MAX((o|fill) * a.geo.w,
-	                        a.geo.w * (2 * fa * fr - fa - fr + 1)),
-	               .h = vis * MAX((NT(o)|fill) * a.geo.h,
-	                        a.geo.h * (2 * fa * fr - fa - fr + 1)),
-	               .filter = a.geo.filter
-	               }
-	             };
+	return (Args){
+		.geo = {
+			.x = (a.geo.x + (fr & NT(fill) & NT(o)) * a.geo.w * (1 - fa)),
+			.y = (a.geo.y + (fr & NT(fill) & o)     * a.geo.h * (1 - fa)),
+			.w = vis * MAX(a.geo.w * (o|fill),
+			               a.geo.w * (2 * fa * fr - fa - fr + 1)),
+			.h = vis * MAX(a.geo.h * (NT(o)|fill),
+			               a.geo.h * (2 * fa * fr - fa - fr + 1)),
+			.filter = a.geo.filter
+		}
+	};
 }
 
-Args id(Region *r, Args a)
+inline Args id(Region *r, Args a)
 {
 	return a;
 }
-#undef NT

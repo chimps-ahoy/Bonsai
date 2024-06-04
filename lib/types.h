@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 #ifndef WINTYPES
+/*default typedef for window types so we can remain independent of implementation*/
 typedef void *Window;
-typedef void *Screen;
 #endif
 
 typedef enum : uint8_t { V = 0b00, H = 0b01, } Orientation; 
