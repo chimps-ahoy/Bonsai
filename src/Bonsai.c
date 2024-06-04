@@ -56,11 +56,6 @@ static inline void dbtree(void)
 
 void setborder(Region *r, Args _)
 {
-    #ifdef DEBUG
-	int border = rand();
-    #else
-	int border = border;
-    #endif
 	if (screens[scurr]->curr == r) 
 		swc_window_set_border(contents(r), highlight, borderpx);
 	else
@@ -228,15 +223,20 @@ void windel(void *win)
 	swc_window_hide(win);
 }
 
-void focus(void *win)
+static inline void focus(Region *r)
+{
+	if (r) {
+		screens[scurr]->curr = r;
+		swc_window_focus(contents(r));
+	}
+	trickle(screens[scurr]->whole, setborder, (Args){0}, id);
+}
+
+void findfocus(void *win)
 {
 	if (win) {
 		Region *focused = find(screens[scurr]->whole, win, screens[scurr]->filter);
-		if (focused) {
-			screens[scurr]->curr = focused;
-			swc_window_focus(win);
-		}
-		trickle(screens[scurr]->whole, setborder, (Args){0}, id);
+		focus(focused);
 	}
 }
 
@@ -246,15 +246,15 @@ void movefocus(void *_, uint32_t time, uint32_t value, uint32_t state)
 		return;
 	Region *next;
 	if ((next = findneighbor(screens[scurr]->curr,
-					         dirmap[value], screens[scurr]->filter))) {
+					          dirmap[value], screens[scurr]->filter))) {
 		screens[scurr]->curr = next;
 	}
-	focus(contents(screens[scurr]->curr));
+	focus(screens[scurr]->curr);
 }
 
 struct swc_window_handler *winhandler = &(struct swc_window_handler){
 	.destroy = windel,
-	.entered = focus
+	.entered = findfocus
 };
 
 void newwin(struct swc_window *s)

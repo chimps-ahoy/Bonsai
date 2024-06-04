@@ -125,9 +125,9 @@ Region *split(Region *tosplit, Direction to, float fact, Window w, uint8_t tags)
 
 static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *breadcrumbs)
 {	
-	if (r->type == SPLIT && r->o == (d&ORIENMASK) && r->subregion[NT(d&SIDEMASK)]->tags & filter)
+	if (r->type == SPLIT && !((r->o ^ d)&ORIENMASK) && r->subregion[NT(d&SIDEMASK)]->tags & filter)
 		return findnext(r->subregion[NT(d&SIDEMASK)], d, filter, breadcrumbs);
-	if (r->type == SPLIT && r->o == (d&ORIENMASK))
+	if (r->type == SPLIT && (r->o ^ d)&ORIENMASK)
 		return findnext(r->subregion[d&SIDEMASK], d, filter, breadcrumbs);
 	Side crumb = pop(breadcrumbs);
 	if (r->type == SPLIT && r->subregion[crumb]->tags & filter)
@@ -141,11 +141,14 @@ static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *b
 {
 	Region *container = r->container;
 	while (container) {
-		int nobacktrack = (d&NOSIDE) ? container->subregion[d&SIDEMASK] != r : 1; //TODO: this is kinda hacky...
-		int tagmatch = (d&NOSIDE) ? container->subregion[d&SIDEMASK]->tags & filter : 1;
-		if (container->o == (d&ORIENMASK) && nobacktrack && tagmatch)
+		//bool nobacktrack = (d&NOSIDE) ? container->subregion[d&SIDEMASK] != r : 1; //TODO: this is kinda hacky...
+		//bool tagmatch = (d&NOSIDE) ? container->subregion[d&SIDEMASK]->tags & filter : 1;
+		bool bcktrck = (d&NOSIDE) && container->subregion[d&SIDEMASK] == r;
+		bool invis = (d&NOSIDE) && container->subregion[d&SIDEMASK]->tags & ~filter; 
+		LOG("bcktck = %d, invis = %d\n", bcktrck, invis);
+		if (!((container->o ^ d)&ORIENMASK) && !bcktrck && !invis)
 			return container;
-		else if (container->o != (d&ORIENMASK))
+		else if ((container->o ^ d)&ORIENMASK)
 			push(breadcrumbs, IN(r));
 		r = container;
 		container = container->container;
@@ -167,7 +170,7 @@ Region *findneighbor(Region *curr, const Direction d, uint8_t filter)
 void reflect(Region *r)
 {
 	if (r->type == SPLIT) {
-		r->o = NT(r->o);
+		r->o ^= ORIENMASK; 
 		reflect(r->subregion[L]);
 		reflect(r->subregion[R]);
 	}
@@ -221,7 +224,7 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 { 
 	if (!r) return NULL;
 	if (!r->container) return r;
-	if (r->container->o != (d&ORIENMASK)) {
+	if ((r->container->o ^ d)&ORIENMASK) {
 		Side s = IN(r); 
 		if (s != (d&SIDEMASK)) {
 			r->container->subregion[s] = r->container->subregion[NT(s)];
