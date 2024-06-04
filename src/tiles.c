@@ -141,8 +141,6 @@ static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *b
 {
 	Region *container = r->container;
 	while (container) {
-		//bool nobacktrack = (d&NOSIDE) ? container->subregion[d&SIDEMASK] != r : 1; //TODO: this is kinda hacky...
-		//bool tagmatch = (d&NOSIDE) ? container->subregion[d&SIDEMASK]->tags & filter : 1;
 		bool bcktrck = (d&NOSIDE) && container->subregion[d&SIDEMASK] == r;
 		bool invis = (d&NOSIDE) && container->subregion[d&SIDEMASK]->tags & ~filter; 
 		LOG("bcktck = %d, invis = %d\n", bcktrck, invis);
@@ -212,8 +210,7 @@ void shiftwidth(Region *r, const Direction d, uint8_t filter)
 	if (!r) return;
 	Region *container = findparent(r, filter, d|NOSIDE, NULL);
 	if (!container && r->container)
-		container = findparent(r->container->subregion[NT(IN(r))],
-							filter, d|NOSIDE, NULL);
+		container = findparent(r->container->subregion[NT(IN(r))], filter, d|NOSIDE, NULL);
 	if (container && (d&SIDEMASK) == R)
 		container->fact = MAX(0.1,MIN(container->fact+0.1, 0.9));
 	else if (container)

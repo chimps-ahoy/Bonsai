@@ -8,28 +8,8 @@
 typedef void *Window;
 #endif
 
-typedef enum : uint8_t { V = 0b00, H = 0b10, } Orientation; 
 typedef enum : uint8_t { L = 0b00, R = 0b01, } Side;
-
-typedef enum : uint8_t { SPLIT = 0, CLIENT = 1} Type;
-
-//typedef struct { Orientation o; Side s; } Direction;
-
-typedef union {
-	struct {
-		int x;
-		int y;
-		unsigned int w;
-		unsigned int h;
-		uint8_t filter;
-	} geo;
-} Args;
-
-/*static const Direction NORTH = { H, L };*/
-/*static const Direction SOUTH = { H, R };*/
-/*static const Direction EAST = { V, R }; */
-/*static const Direction WEST = { V, L };*/
-
+typedef enum : uint8_t { V = 0b00, H = 0b10, } Orientation; 
 typedef enum : uint8_t {
 	NORTH = H | L,//0b10
 	EAST = V | R,//0b01
@@ -40,4 +20,15 @@ typedef enum : uint8_t {
 #define ORIENMASK 2
 #define NOSIDE 4
 
+typedef enum : uint8_t { SPLIT = 0, CLIENT = 1} Type;
+
+typedef union {
+	struct {
+		int x;
+		int y;
+		unsigned int w;
+		unsigned int h;
+		uint8_t filter;
+	} geo;
+} Args;
 #endif
