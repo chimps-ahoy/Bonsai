@@ -253,16 +253,6 @@ struct swc_window_handler *winhandler = &(struct swc_window_handler){
 
 void newwin(struct swc_window *s)
 {
-	Region *new = malloc(sizeof(Region));
-	if (!new) {
-		LOG("failed malloc new\n");
-		exit(EXIT_FAILURE);
-	}
-	new->type = CLIENT;
-	new->win = s;
-	new->parent = NULL;
-	new->tags = screens[scurr]->filter;
-
 	screens[scurr]->curr = split(screens[scurr]->curr, diropen, 0.5, s,
 			                     screens[scurr]->filter);
 
