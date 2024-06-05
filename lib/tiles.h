@@ -57,13 +57,12 @@ bool visible(Region *, uint8_t);
  */
 void freeregion(Region *, Args);
 
-/* Updates the tags of the given split Region's container to be the union of its
- * childrens' tags, then travels to its container and repeats until reaching the
- * root
+/* Toggles the given tag on the region, ensuring that the region's tags are non-zero.
  *
- * PARAMS: The region whose tags we want to propegate up. Should be a client region.
+ * PARAMS: The region and the tag(s) to toggle.
+ * RETURNS: A bool indicating if the tags have changed
  */
-void propegatetags(Region *);
+bool toggletags(Region *, uint8_t);
 
 /* Splits the given region with the specified factor, populating the remaining
  * region with the specified window all in the direction given

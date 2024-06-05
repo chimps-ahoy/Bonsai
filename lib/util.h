@@ -13,6 +13,9 @@
 #define LIST(x,_) \
 	x,
 
+#define TAG(x) \
+	(1 << ((x)-1))
+
 #ifdef DEBUG
 #define LOG(x,...) fprintf(stderr,"%s @ L%d:\n\t " x, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
 #else

@@ -37,6 +37,9 @@ static Direction diropen = defopen;
 static const Direction dirmap[] = {
 	FORALL_DIR(BIND)
 };
+static const uint8_t tagmap[] = {
+	FORALL_TAGS(BIND)
+};
 #undef BIND
 
 static inline void dbtree(void)
@@ -136,7 +139,7 @@ void newscreen(struct swc_screen *s)
 	}
 	new->whole = NULL;
 	new->curr = NULL;
-	new->filter = ~0;
+	new->filter = TAG(1);
 
 	if (scount == ssize) {
 		if (!(screens = realloc(screens, ++ssize))) {
@@ -240,6 +243,24 @@ void findfocus(void *win)
 	}
 }
 
+void toggletagcurr(void *_, uint32_t time, uint32_t value, uint32_t state)
+{
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
+		return;
+	if (toggletags(screens[scurr]->curr, tagmap[value]))
+		drawscreen(screens[scurr]);
+	LOG("tags: %b\n", tagmap[value]);
+}
+
+void togglefilter(void *_, uint32_t time, uint32_t value, uint32_t state)
+{
+	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
+		return;
+	screens[scurr]->filter ^= tagmap[value];
+	drawscreen(screens[scurr]);
+	LOG("filter: %b\n", screens[scurr]->filter);
+}
+
 void movefocus(void *_, uint32_t time, uint32_t value, uint32_t state)
 {
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
@@ -317,8 +338,18 @@ int main(void)
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, key, \
 			        movefocus, NULL); \
 	}
+    #define TOGGLETAG(key,_) { \
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, key, \
+			        toggletagcurr, NULL); \
+	}
+    #define TOGGLEFILTER(key,_) { \
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, key, \
+			        togglefilter, NULL); \
+	}
 	FORALL_DIR(BINDTERM);
 	FORALL_DIR(MOVEFOCUS);
+	FORALL_TAGS(TOGGLETAG);
+	FORALL_TAGS(TOGGLEFILTER);
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_q,
 			        delcurr, NULL);
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_q,

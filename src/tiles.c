@@ -69,12 +69,22 @@ inline void freeregion(Region *r, Args _)
 	free(r);
 }
 
-inline void propegatetags(Region *r)
+static inline void propegatetags(Region *r)
 {
 	while ((r = r->container)) 
 		r->tags = r->subregion[L]->tags | r->subregion[R]->tags;
 }
 
+bool toggletags(Region *r, uint8_t tags)
+{
+	int newt;
+	if ((newt = r->tags ^ tags)) {
+		r->tags = newt;
+		propegatetags(r);
+		return true;
+	}
+	return false;
+}
 
 static Region *reparent(Region *tosplit, Orientation o, float fact)
 {
