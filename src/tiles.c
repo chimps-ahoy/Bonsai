@@ -48,7 +48,7 @@ inline Window contents(Region *r)
 
 inline bool isorphan(Region *r)
 {
-	return !(bool)(r->container);
+	return !(r->container);
 }
 
 inline void zoomout(Region **whole, Region *r)
@@ -135,16 +135,16 @@ Region *split(Region *tosplit, Direction to, float fact, Window w, uint8_t tags)
 
 static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *breadcrumbs)
 {	
-	if (r->type == SPLIT && !((r->o ^ d)&ORIENMASK) && r->subregion[NT(d&SIDEMASK)]->tags & filter)
+	if (r->type == CLIENT) return r;
+	if (BITEQ(r->o , d, ORIENMASK) && r->subregion[NT(d&SIDEMASK)]->tags & filter)
 		return findnext(r->subregion[NT(d&SIDEMASK)], d, filter, breadcrumbs);
-	if (r->type == SPLIT && !((r->o ^ d)&ORIENMASK))
+	if (BITEQ(r->o, d, ORIENMASK))
 		return findnext(r->subregion[d&SIDEMASK], d, filter, breadcrumbs);
+
 	Side crumb = pop(breadcrumbs);
-	if (r->type == SPLIT && r->subregion[crumb]->tags & filter)
+	if (r->subregion[crumb]->tags & filter)
 		return findnext(r->subregion[crumb], d, filter, breadcrumbs);
-	if (r->type == SPLIT)
-		return findnext(r->subregion[NT(crumb)], d, filter, breadcrumbs);
-	return r;
+	return findnext(r->subregion[NT(crumb)], d, filter, breadcrumbs);
 }
 
 static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *breadcrumbs)
@@ -153,9 +153,9 @@ static Region *findparent(Region *r, uint8_t filter, const Direction d, Stack *b
 	while (container) {
 		bool nobacktrack = (d&NOSIDE) || container->subregion[d&SIDEMASK] != r;
 		bool visible = (d&NOSIDE) || container->subregion[d&SIDEMASK]->tags & filter;
-		if (!((container->o ^ d)&ORIENMASK) && nobacktrack && visible)
+		if (BITEQ(container->o, d, ORIENMASK) && nobacktrack && visible)
 			return container;
-		else if ((container->o ^ d)&ORIENMASK)
+		else if (!BITEQ(container->o, d, ORIENMASK))
 			push(breadcrumbs, IN(r));
 		r = container;
 		container = container->container;
@@ -230,7 +230,7 @@ Region *moveclient(Region *r, const Direction d, uint8_t filter)
 { 
 	if (!r) return NULL;
 	if (!r->container) return r;
-	if ((r->container->o ^ d)&ORIENMASK) {
+	if (!BITEQ(r->container->o, d, ORIENMASK)) {
 		Side s = IN(r); 
 		if (s != (d&SIDEMASK)) {
 			r->container->subregion[s] = r->container->subregion[NT(s)];
