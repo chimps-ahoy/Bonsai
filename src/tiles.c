@@ -137,7 +137,7 @@ static Region *findnext(Region *r, const Direction d, uint8_t filter, Stack *bre
 {	
 	if (r->type == SPLIT && !((r->o ^ d)&ORIENMASK) && r->subregion[NT(d&SIDEMASK)]->tags & filter)
 		return findnext(r->subregion[NT(d&SIDEMASK)], d, filter, breadcrumbs);
-	if (r->type == SPLIT && (r->o ^ d)&ORIENMASK)
+	if (r->type == SPLIT && !((r->o ^ d)&ORIENMASK))
 		return findnext(r->subregion[d&SIDEMASK], d, filter, breadcrumbs);
 	Side crumb = pop(breadcrumbs);
 	if (r->type == SPLIT && r->subregion[crumb]->tags & filter)
