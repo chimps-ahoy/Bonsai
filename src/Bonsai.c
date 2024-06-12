@@ -217,7 +217,7 @@ void windel(void *win)
 		if (todestroy) {
 			delwin(todestroy, i);
 			return;
-		} 
+		}
 	}
 	/*if the window is not found in any region, it is transient or floating
 	 * or whatever. some weird edge case. this code almost never runs*/
@@ -265,7 +265,7 @@ void movefocus(void *dir, uint32_t time, uint32_t value, uint32_t state)
 		return;
 	Region *next;
 	if ((next = findneighbor(screens[scurr]->curr, (Direction)dir,
-					         screens[scurr]->filter))) {
+	                         screens[scurr]->filter))) {
 		screens[scurr]->curr = next;
 	}
 	focus(screens[scurr]->curr);
@@ -279,7 +279,7 @@ struct swc_window_handler *winhandler = &(struct swc_window_handler){
 void newwin(struct swc_window *s)
 {
 	screens[scurr]->curr = split(screens[scurr]->curr, diropen, 0.5, s,
-			                     screens[scurr]->filter);
+	                             screens[scurr]->filter);
 	zoomout(&(screens[scurr]->whole), screens[scurr]->curr);
 
 	swc_window_set_handler(s, winhandler, s);
@@ -333,19 +333,19 @@ int main(void)
 
 	#define BINDTERM(key,dir) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_mnmod, key, \
-			        openmenu, (void*)dir); \
+		            openmenu, (void*)dir); \
     }
 	#define MOVEFOCUS(key,dir) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_fcsmod, key, \
-			        movefocus, (void*)dir); \
+		            movefocus, (void*)dir); \
 	}
 	#define TOGGLETAG(key,tag) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_tagtogmod, key, \
-			        toggletagcurr, (void*)tag); \
+		            toggletagcurr, (void*)tag); \
 	}
 	#define TOGGLEFILTER(key,tag) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_filtogmod, key, \
-			        togglefilter, (void*)tag); \
+		            togglefilter, (void*)tag); \
 	}
 	FORALL_DIR(BINDTERM);
 	FORALL_DIR(MOVEFOCUS);
@@ -353,9 +353,9 @@ int main(void)
 	FORALL_TAGS(TOGGLEFILTER);
 
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_q,
-			        delcurr, NULL);
+		            delcurr, NULL);
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_q,
-			        quit, NULL);
+		            quit, NULL);
 
 	wl_display_run(dpy);
 
