@@ -264,8 +264,8 @@ void movefocus(void *dir, uint32_t time, uint32_t value, uint32_t state)
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
 	Region *next;
-	if ((next = findneighbor(screens[scurr]->curr,
-					          (Direction)dir, screens[scurr]->filter))) {
+	if ((next = findneighbor(screens[scurr]->curr, (Direction)dir,
+					         screens[scurr]->filter))) {
 		screens[scurr]->curr = next;
 	}
 	focus(screens[scurr]->curr);
@@ -331,19 +331,19 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
-    #define BINDTERM(key,dir) { \
+	#define BINDTERM(key,dir) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_mnmod, key, \
 			        openmenu, (void*)dir); \
     }
-    #define MOVEFOCUS(key,dir) { \
+	#define MOVEFOCUS(key,dir) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_fcsmod, key, \
 			        movefocus, (void*)dir); \
 	}
-    #define TOGGLETAG(key,tag) { \
+	#define TOGGLETAG(key,tag) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_tagtogmod, key, \
 			        toggletagcurr, (void*)tag); \
 	}
-    #define TOGGLEFILTER(key,tag) { \
+	#define TOGGLEFILTER(key,tag) { \
 	swc_add_binding(SWC_BINDING_KEY, cfg_filtogmod, key, \
 			        togglefilter, (void*)tag); \
 	}
