@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <wayland-server.h>
 #include <xkbcommon/xkbcommon.h>
+/************/
 
 /* TYPES */
 #define WINTYPES
@@ -23,34 +24,31 @@ typedef struct {
 	Region *curr;
 	uint8_t filter;
 } Tiling;
+/*********/
 
 /* STATE INFO */
 static struct wl_display *dpy = NULL;
+
 static Tiling **screens = NULL;
-static int scount = 0;
-static int ssize = 0;
-static int scurr = 0;
+static int      scount  = 0;
+static int      ssize   = 0;
+static int      scurr   = 0;
+/*************/
 
 /* CONFIG INFO */
-static Direction diropen = defopen;
-#define BIND(key,dir) [key] = dir,
-static const Direction dirmap[] = {
-	FORALL_DIR(BIND)
-};
-static const uint8_t tagmap[] = {
-	FORALL_TAGS(BIND)
-};
-#undef BIND
+static Direction diropen = cfg_defopen;
+/**************/
 
+/* CODE */
 static inline void dbtree(void)
 {
 	LOG("\n");
 	printtree(screens[scurr]->whole, stderr, (Args) {
 			.geo = {
 				.x = OFFSET,
-				.y = barpx+OFFSET,
+				.y = cfg_barpx+OFFSET,
 				.w = screens[scurr]->screen->usable_geometry.width-2*OFFSET,
-				.h = screens[scurr]->screen->usable_geometry.height-barpx-2*OFFSET,
+				.h = screens[scurr]->screen->usable_geometry.height-cfg_barpx-2*OFFSET,
 				.filter = screens[scurr]->filter,
 			}
 		});
@@ -60,9 +58,9 @@ static inline void dbtree(void)
 void setborder(Region *r, Args _)
 {
 	if (screens[scurr]->curr == r) 
-		swc_window_set_border(contents(r), highlight, borderpx);
+		swc_window_set_border(contents(r), cfg_highlight, cfg_borderpx);
 	else
-		swc_window_set_border(contents(r), border, borderpx);
+		swc_window_set_border(contents(r), cfg_border, cfg_borderpx);
 }
 
 void draw(Region *r, Args a)
@@ -92,9 +90,9 @@ static inline void drawscreen(Tiling *t)
 	Args geo = (Args){
 		.geo = {
 			.x = OFFSET,
-			.y = barpx+OFFSET,
+			.y = cfg_barpx+OFFSET,
 			.w = t->screen->usable_geometry.width-2*OFFSET,
-			.h = t->screen->usable_geometry.height-barpx-2*OFFSET,
+			.h = t->screen->usable_geometry.height-cfg_barpx-2*OFFSET,
 			.filter = t->filter,
 		}
 	};
@@ -243,31 +241,31 @@ void findfocus(void *win)
 	}
 }
 
-void toggletagcurr(void *_, uint32_t time, uint32_t value, uint32_t state)
+void toggletagcurr(void *tags, uint32_t time, uint32_t value, uint32_t state)
 {
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
-	if (toggletags(screens[scurr]->curr, tagmap[value]))
+	if (toggletags(screens[scurr]->curr, (uint8_t)tags))
 		drawscreen(screens[scurr]);
-	LOG("tags: %b\n", tagmap[value]);
+	LOG("tags: %b\n", (uint8_t)tags);
 }
 
-void togglefilter(void *_, uint32_t time, uint32_t value, uint32_t state)
+void togglefilter(void *tags, uint32_t time, uint32_t value, uint32_t state)
 {
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
-	screens[scurr]->filter ^= tagmap[value];
+	screens[scurr]->filter ^= (uint8_t)tags;
 	drawscreen(screens[scurr]);
 	LOG("filter: %b\n", screens[scurr]->filter);
 }
 
-void movefocus(void *_, uint32_t time, uint32_t value, uint32_t state)
+void movefocus(void *dir, uint32_t time, uint32_t value, uint32_t state)
 {
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
 	Region *next;
 	if ((next = findneighbor(screens[scurr]->curr,
-					          dirmap[value], screens[scurr]->filter))) {
+					          (Direction)dir, screens[scurr]->filter))) {
 		screens[scurr]->curr = next;
 	}
 	focus(screens[scurr]->curr);
@@ -291,15 +289,20 @@ void newwin(struct swc_window *s)
 	drawscreen(screens[scurr]);
 }
 
-void spawn(void *data, uint32_t time, uint32_t value, uint32_t state)
+void spawn(void *prog, uint32_t time, uint32_t value, uint32_t state)
 {
-	diropen = dirmap[value];
 	if (state != WL_KEYBOARD_KEY_STATE_PRESSED)
 		return;
-	LOG("spawning %s\n", *(char **)data);
+	LOG("spawning %s\n", *(char **)prog);
 	extern char **environ;
 	int _;
-	posix_spawnp(&_, *(char **)data, NULL, NULL, data, environ);
+	posix_spawnp(&_, *(char **)prog, NULL, NULL, prog, environ);
+}
+
+void openmenu(void *dir, uint32_t time, uint32_t value, uint32_t state)
+{
+	diropen = (Direction)dir;
+	spawn((void*)cfg_menu, time, value, state);
 }
 
 static struct swc_manager *man = &(struct swc_manager){
@@ -328,28 +331,27 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
-	static const char *term[] = {"st", NULL};
-
-    #define BINDTERM(key,_) { \
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, key, \
-			        spawn, term); \
+    #define BINDTERM(key,dir) { \
+	swc_add_binding(SWC_BINDING_KEY, cfg_mnmod, key, \
+			        openmenu, (void*)dir); \
     }
-    #define MOVEFOCUS(key,_) { \
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, key, \
-			        movefocus, NULL); \
+    #define MOVEFOCUS(key,dir) { \
+	swc_add_binding(SWC_BINDING_KEY, cfg_fcsmod, key, \
+			        movefocus, (void*)dir); \
 	}
-    #define TOGGLETAG(key,_) { \
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, key, \
-			        toggletagcurr, NULL); \
+    #define TOGGLETAG(key,tag) { \
+	swc_add_binding(SWC_BINDING_KEY, cfg_tagtogmod, key, \
+			        toggletagcurr, (void*)tag); \
 	}
-    #define TOGGLEFILTER(key,_) { \
-	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, key, \
-			        togglefilter, NULL); \
+    #define TOGGLEFILTER(key,tag) { \
+	swc_add_binding(SWC_BINDING_KEY, cfg_filtogmod, key, \
+			        togglefilter, (void*)tag); \
 	}
 	FORALL_DIR(BINDTERM);
 	FORALL_DIR(MOVEFOCUS);
 	FORALL_TAGS(TOGGLETAG);
 	FORALL_TAGS(TOGGLEFILTER);
+
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_q,
 			        delcurr, NULL);
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO | SWC_MOD_SHIFT, XKB_KEY_q,
@@ -359,3 +361,4 @@ int main(void)
 
 	return EXIT_SUCCESS;
 }
+/********/
