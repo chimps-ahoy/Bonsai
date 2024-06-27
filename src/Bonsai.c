@@ -195,6 +195,7 @@ static inline void delwin(Region *todestroy, int screen)
 			r = find(screens[screen]->whole, NULL, screens[screen]->filter);
 		}
 		screens[screen]->curr = r;
+		swc_window_focus(contents(r));
 		swc_window_hide(contents(todestroy));
 		LOG("window hidden\n");
 		free(todestroy);
@@ -351,6 +352,9 @@ int main(void)
 	FORALL_DIR(MOVEFOCUS);
 	FORALL_TAGS(TOGGLETAG);
 	FORALL_TAGS(TOGGLEFILTER);
+	static const char *term[] = {"st", NULL};
+	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_Return,
+	                spawn, term);
 
 	swc_add_binding(SWC_BINDING_KEY, SWC_MOD_LOGO, XKB_KEY_q,
 		            delcurr, NULL);

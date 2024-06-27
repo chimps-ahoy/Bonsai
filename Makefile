@@ -8,17 +8,16 @@ DATE != date +"%F@%H:%M:%S"
 run : $(EXEC)
 	$(BINDIR)/$(EXEC) 2>$(LOGDIR)/$(DATE).log
 
-$(EXEC) : bin
-	printf "#!/bin/sh\n\nswc-launch $(BINDIR)/$(EXEC)_bin" > $(BINDIR)/$(EXEC)
-	chmod +x $(BINDIR)/$(EXEC)
+$(EXEC) : raw
+	printf "#!/bin/sh\n\nswc-launch $(BINDIR)/$(EXEC)_"$< > $(BINDIR)/$@
+	chmod +x $(BINDIR)/$@
 
-bin : $(OBJECTS)
+raw : $(OBJECTS)
 	mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) $(OBJECTS) -o $(BINDIR)/$(EXEC)_$@
 
-$(OBJDIR)%.o : $(SRCDIR)%.c
-	mkdir -p $(OBJDIR)
+.c.o :
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 clean :
-	rm -f $(BINDIR)/* $(OBJDIR)/* $(LOGDIR)/*
+	rm -f $(BINDIR)/* $(SRCDIR)/*.o $(LOGDIR)/*

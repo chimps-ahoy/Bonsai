@@ -40,4 +40,4 @@ static constexpr unsigned int  cfg_barpx     = 0;
 
 static constexpr Direction cfg_defopen = EAST;
 
-static const char *const cfg_menu[] = {"st", NULL};
+static const char *const cfg_menu[] = {"menu", "st", NULL};
