@@ -7,7 +7,7 @@
 #include "util.h"
 
 typedef struct node {
-	Type type;
+	Type type : 1;
 	struct node *container;
 	uint8_t tags;
 	union {
